@@ -1,3 +1,41 @@
+libgbinder (1.1.3) unstable; urgency=low
+
+  * Improved unit test coverage
+
+ -- Slava Monich <slava.monich@jolla.com>  Wed, 23 Dec 2020 21:48:27 +0200
+
+libgbinder (1.1.2) unstable; urgency=low
+
+  * Fixed random unit text failures
+
+ -- Slava Monich <slava.monich@jolla.com>  Wed, 23 Dec 2020 12:39:22 +0200
+
+libgbinder (1.1.1) unstable; urgency=low
+
+  * Handle corner cases for abandoned loopers
+  * Pass 0x0f priority to aidl2 service list request.
+  * Improved binder simulation for unit tests
+  * Added servicemanager_aidl unit test
+
+ -- Slava Monich <slava.monich@jolla.com>  Tue, 22 Dec 2020 15:15:10 +0200
+
+libgbinder (1.1.0) unstable; urgency=low
+
+  * Made RPC protocol configurable per binder device
+  * Made service managers configurable per binder device
+  * Added support for multiple config files
+  * Added "aidl2" variant of service manager
+  * Added "aidl2" variant of RPC protocol
+  * Added support for API level presets
+
+ -- Slava Monich <slava.monich@jolla.com>  Fri, 04 Dec 2020 13:47:26 +0200
+
+libgbinder (1.0.47) unstable; urgency=low
+
+  * Make library executable on RPM based systems
+
+ -- Slava Monich <slava.monich@jolla.com>  Sat, 19 Sep 2020 20:14:20 +0300
+
 libgbinder (1.0.46) unstable; urgency=low
 
   * Make sure we drop fds that are going to be closed

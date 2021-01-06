@@ -5,6 +5,7 @@ all:
 	@$(MAKE) -C unit_buffer $*
 	@$(MAKE) -C unit_cleanup $*
 	@$(MAKE) -C unit_client $*
+	@$(MAKE) -C unit_config $*
 	@$(MAKE) -C unit_driver $*
 	@$(MAKE) -C unit_eventloop $*
 	@$(MAKE) -C unit_ipc $*
@@ -18,6 +19,8 @@ all:
 	@$(MAKE) -C unit_remote_reply $*
 	@$(MAKE) -C unit_remote_request $*
 	@$(MAKE) -C unit_servicemanager $*
+	@$(MAKE) -C unit_servicemanager_aidl $*
+	@$(MAKE) -C unit_servicemanager_aidl2 $*
 	@$(MAKE) -C unit_servicename $*
 	@$(MAKE) -C unit_servicepoll $*
 	@$(MAKE) -C unit_writer $*

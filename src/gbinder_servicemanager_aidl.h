@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2020 Jolla Ltd.
+ * Copyright (C) 2020 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -30,47 +30,32 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GBINDER_HANDLER_H
-#define GBINDER_HANDLER_H
+#ifndef GBINDER_SERVICEMANAGER_AIDL_H
+#define GBINDER_SERVICEMANAGER_AIDL_H
 
-#include "gbinder_types_p.h"
+#include "gbinder_servicemanager_p.h"
 
-typedef struct gbinder_handler_functions {
-    gboolean (*can_loop)(GBinderHandler* handler);
-    GBinderLocalReply* (*transact)(GBinderHandler* handler,
-        GBinderLocalObject* obj, GBinderRemoteRequest* req, guint code,
-        guint flags, int* status);
-} GBinderHandlerFunctions;
+typedef struct gbinder_servicemanager_aidl_priv GBinderServiceManagerAidlPriv;
+typedef struct gbinder_servicemanager_aidl {
+    GBinderServiceManager manager;
+    GBinderServiceManagerAidlPriv* priv;
+} GBinderServiceManagerAidl;
 
-struct gbinder_handler {
-    const GBinderHandlerFunctions* f;
-};
+typedef struct gbinder_servicemanager_aidl_class {
+    GBinderServiceManagerClass parent;
+    GBinderLocalRequest* (*list_services_req)
+        (GBinderClient* client, gint32 index);
+    GBinderLocalRequest* (*add_service_req)
+        (GBinderClient* client, const char* name, GBinderLocalObject* obj);
+} GBinderServiceManagerAidlClass;
 
-/* Inline wrappers */
+#define GBINDER_TYPE_SERVICEMANAGER_AIDL \
+    gbinder_servicemanager_aidl_get_type()
+#define GBINDER_SERVICEMANAGER_AIDL_CLASS(klass) \
+    G_TYPE_CHECK_CLASS_CAST((klass), GBINDER_TYPE_SERVICEMANAGER_AIDL, \
+    GBinderServiceManagerAidlClass)
 
-GBINDER_INLINE_FUNC
-gboolean
-gbinder_handler_can_loop(
-    GBinderHandler* self)
-{
-    return self && self->f->can_loop && self->f->can_loop(self);
-}
-
-GBINDER_INLINE_FUNC
-GBinderLocalReply*
-gbinder_handler_transact(
-    GBinderHandler* self,
-    GBinderLocalObject* obj,
-    GBinderRemoteRequest* req,
-    guint code,
-    guint flags,
-    int* status)
-{
-    return self ? self->f->transact(self, obj, req, code, flags, status) :
-        NULL;
-}
-
-#endif /* GBINDER_HANDLER_H */
+#endif /* GBINDER_SERVICEMANAGER_AIDL_H */
 
 /*
  * Local Variables:

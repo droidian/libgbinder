@@ -13,7 +13,6 @@
  *   2. Redistributions in binary form must reproduce the above copyright
  *      notice, this list of conditions and the following disclaimer in the
  *      documentation and/or other materials provided with the distribution.
- *      documentation and/or other materials provided with the distribution.
  *   3. Neither the names of the copyright holders nor the names of its
  *      contributors may be used to endorse or promote products derived
  *      from this software without specific prior written permission.
@@ -37,11 +36,12 @@
 #include "gbinder_types_p.h"
 
 /*
- * For whatever reason services communicating via /dev/binder
- * and /dev/hwbinder use slightly different RPC headers.
+ * There are several versions of binder RPC protocol with diffferent
+ * transaction headers and transaction codes.
  */
 
 struct gbinder_rpc_protocol {
+    const char* name;
     guint32 ping_tx;
     void (*write_ping)(GBinderWriter* writer);
     void (*write_rpc_header)(GBinderWriter* writer, const char* iface);
@@ -49,13 +49,17 @@ struct gbinder_rpc_protocol {
         char** iface);
 };
 
-extern const GBinderRpcProtocol gbinder_rpc_protocol_binder GBINDER_INTERNAL;
-extern const GBinderRpcProtocol gbinder_rpc_protocol_hwbinder GBINDER_INTERNAL;
-
 /* Returns one of the above based on the device name */
 const GBinderRpcProtocol*
 gbinder_rpc_protocol_for_device(
     const char* dev)
+    GBINDER_INTERNAL;
+
+/* Runs at exit, declared here strictly for unit tests */
+void
+gbinder_rpc_protocol_exit(
+    void)
+    GBINDER_DESTRUCTOR
     GBINDER_INTERNAL;
 
 #endif /* GBINDER_RPC_PROTOCOL_H */

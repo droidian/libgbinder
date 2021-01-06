@@ -15,8 +15,8 @@
 #
 
 VERSION_MAJOR = 1
-VERSION_MINOR = 0
-VERSION_RELEASE = 46
+VERSION_MINOR = 1
+VERSION_RELEASE = 3
 
 # Version for pkg-config
 PCVERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_RELEASE)
@@ -78,6 +78,7 @@ SRC = \
   gbinder_buffer.c \
   gbinder_cleanup.c \
   gbinder_client.c \
+  gbinder_config.c \
   gbinder_driver.c \
   gbinder_eventloop.c \
   gbinder_io_32.c \
@@ -97,9 +98,10 @@ SRC = \
   gbinder_writer.c
 
 SRC += \
-  gbinder_defaultservicemanager.c \
-  gbinder_hwservicemanager.c \
-  gbinder_servicemanager.c
+  gbinder_servicemanager.c \
+  gbinder_servicemanager_aidl.c \
+  gbinder_servicemanager_aidl2.c \
+  gbinder_servicemanager_hidl.c
 
 SRC += \
   gbinder_system.c
@@ -319,7 +321,7 @@ INSTALL_INCLUDE_DIR = $(DESTDIR)/usr/include/$(NAME)
 INSTALL_PKGCONFIG_DIR = $(DESTDIR)$(ABS_LIBDIR)/pkgconfig
 
 install: $(INSTALL_LIB_DIR)
-	$(INSTALL_FILES) $(RELEASE_SO) $(INSTALL_LIB_DIR)
+	$(INSTALL) -m 755 $(RELEASE_SO) $(INSTALL_LIB_DIR)
 	ln -sf $(LIB_SO) $(INSTALL_LIB_DIR)/$(LIB_SYMLINK2)
 	ln -sf $(LIB_SYMLINK2) $(INSTALL_LIB_DIR)/$(LIB_SYMLINK1)
 

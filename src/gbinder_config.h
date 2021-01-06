@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2020 Jolla Ltd.
+ * Copyright (C) 2020 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -30,47 +30,44 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GBINDER_HANDLER_H
-#define GBINDER_HANDLER_H
+#ifndef GBINDER_CONFIG_H
+#define GBINDER_CONFIG_H
 
 #include "gbinder_types_p.h"
 
-typedef struct gbinder_handler_functions {
-    gboolean (*can_loop)(GBinderHandler* handler);
-    GBinderLocalReply* (*transact)(GBinderHandler* handler,
-        GBinderLocalObject* obj, GBinderRemoteRequest* req, guint code,
-        guint flags, int* status);
-} GBinderHandlerFunctions;
+typedef
+gconstpointer
+(*GBinderConfigValueMapFunc)(
+    const char* value);
 
-struct gbinder_handler {
-    const GBinderHandlerFunctions* f;
-};
+GHashTable*
+gbinder_config_load(
+    const char* group,
+    GBinderConfigValueMapFunc map)
+    GBINDER_INTERNAL;
 
-/* Inline wrappers */
+GKeyFile* /* autoreleased */
+gbinder_config_get(
+    void)
+    GBINDER_INTERNAL;
 
-GBINDER_INLINE_FUNC
-gboolean
-gbinder_handler_can_loop(
-    GBinderHandler* self)
-{
-    return self && self->f->can_loop && self->f->can_loop(self);
-}
+/* This one declared strictly for unit tests */
+void
+gbinder_config_exit(
+    void)
+    GBINDER_INTERNAL
+    GBINDER_DESTRUCTOR;
 
-GBINDER_INLINE_FUNC
-GBinderLocalReply*
-gbinder_handler_transact(
-    GBinderHandler* self,
-    GBinderLocalObject* obj,
-    GBinderRemoteRequest* req,
-    guint code,
-    guint flags,
-    int* status)
-{
-    return self ? self->f->transact(self, obj, req, code, flags, status) :
-        NULL;
-}
+/* And these too */
+extern const char* gbinder_config_file GBINDER_INTERNAL;
+extern const char* gbinder_config_dir GBINDER_INTERNAL;
 
-#endif /* GBINDER_HANDLER_H */
+/* Configuration groups and special value */
+#define GBINDER_CONFIG_GROUP_PROTOCOL "Protocol"
+#define GBINDER_CONFIG_GROUP_SERVICEMANAGER "ServiceManager"
+#define GBINDER_CONFIG_VALUE_DEFAULT "Default"
+
+#endif /* GBINDER_CONFIG_H */
 
 /*
  * Local Variables:

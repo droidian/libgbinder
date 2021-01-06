@@ -36,6 +36,7 @@
 #include "gbinder_driver.h"
 #include "gbinder_handler.h"
 #include "gbinder_io.h"
+#include "gbinder_rpc_protocol.h"
 #include "gbinder_object_registry.h"
 #include "gbinder_local_object_p.h"
 #include "gbinder_local_reply.h"
@@ -606,6 +607,16 @@ gbinder_ipc_looper_count_primary(
 }
 
 static
+gboolean
+gbinder_ipc_looper_can_loop(
+    GBinderHandler* handler)
+{
+    GBinderIpcLooper* looper = G_CAST(handler,GBinderIpcLooper,handler);
+
+    return !g_atomic_int_get(&looper->exit);
+}
+
+static
 GBinderLocalReply*
 gbinder_ipc_looper_transact(
     GBinderHandler* handler,
@@ -823,6 +834,7 @@ gbinder_ipc_looper_new(
     /* Note: this call can actually fail */
     if (!pipe(fd)) {
         static const GBinderHandlerFunctions handler_functions = {
+            .can_loop = gbinder_ipc_looper_can_loop,
             .transact = gbinder_ipc_looper_transact
         };
         GError* error = NULL;
@@ -895,13 +907,15 @@ gbinder_ipc_looper_stop(
     GBinderIpcLooper* looper)
 {
     /* Caller checks looper for NULL */
-    if (looper->thread && looper->thread != g_thread_self()) {
-        guint8 done = TX_DONE;
-
+    if (looper->thread) {
         GDEBUG("Stopping looper %s", looper->name);
         g_atomic_int_set(&looper->exit, TRUE);
-        if (write(looper->pipefd[1], &done, sizeof(done)) <= 0) {
-            looper->thread = NULL;
+        if (looper->thread != g_thread_self()) {
+            guint8 done = TX_DONE;
+
+            if (write(looper->pipefd[1], &done, sizeof(done)) <= 0) {
+                looper->thread = NULL;
+            }
         }
     }
 }
@@ -1420,7 +1434,8 @@ gbinder_ipc_tx_internal_exec(
     GBinderIpcTxPriv* priv)
 {
     static const GBinderHandlerFunctions handler_fn = {
-        gbinder_ipc_tx_handler_transact
+        .can_loop = NULL,
+        .transact = gbinder_ipc_tx_handler_transact
     };
     GBinderIpcTxInternal* tx = gbinder_ipc_tx_internal_cast(priv);
     GBinderIpcTx* pub = &priv->pub;
@@ -1570,12 +1585,14 @@ gbinder_ipc_tx_proc(
 
 GBinderIpc*
 gbinder_ipc_new(
-    const char* dev,
-    const GBinderRpcProtocol* protocol)
+    const char* dev)
 {
     GBinderIpc* self = NULL;
+    const GBinderRpcProtocol* protocol;
 
     if (!dev || !dev[0]) dev = GBINDER_DEFAULT_BINDER;
+    protocol = gbinder_rpc_protocol_for_device(dev); /* Never returns NULL */
+
     /* Lock */
     pthread_mutex_lock(&gbinder_ipc_mutex);
     if (gbinder_ipc_table) {
@@ -1744,6 +1761,14 @@ gbinder_ipc_cancel(
             GWARN("Invalid transaction id %lu", id);
         }
     }
+}
+
+gboolean
+gbinder_ipc_set_max_threads(
+    GBinderIpc* self,
+    gint max)
+{
+    return g_thread_pool_set_max_threads(self->priv->tx_pool, max, NULL);
 }
 
 /*==========================================================================*

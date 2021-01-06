@@ -1,3 +1,4 @@
+
 #!/bin/bash
 #
 # This script requires lcov, dirname
@@ -7,6 +8,7 @@ TESTS="\
 unit_buffer \
 unit_cleanup \
 unit_client \
+unit_config \
 unit_driver \
 unit_eventloop \
 unit_ipc \
@@ -20,6 +22,8 @@ unit_remote_object \
 unit_remote_reply \
 unit_remote_request \
 unit_servicemanager \
+unit_servicemanager_aidl \
+unit_servicemanager_aidl2 \
 unit_servicename \
 unit_servicepoll \
 unit_writer"
