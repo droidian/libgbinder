@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -60,12 +60,43 @@ struct gbinder_ipc_tx {
 };
 
 typedef
+gboolean
+(*GBinderIpcLocalObjectCheckFunc)(
+    GBinderLocalObject* obj,
+    void* user_data);
+
+typedef
 void
 (*GBinderIpcReplyFunc)(
     GBinderIpc* ipc,
     GBinderRemoteReply* reply,
     int status,
     void* user_data);
+
+typedef
+GBinderRemoteReply*
+(*GBinderIpcSyncReplyFunc)(
+    GBinderIpc* ipc,
+    guint32 handle,
+    guint32 code,
+    GBinderLocalRequest* req,
+    int* status);
+
+typedef
+int
+(*GBinderIpcSyncOnewayFunc)(
+    GBinderIpc* ipc,
+    guint32 handle,
+    guint32 code,
+    GBinderLocalRequest* req);
+
+struct gbinder_ipc_sync_api {
+    GBinderIpcSyncReplyFunc sync_reply;
+    GBinderIpcSyncOnewayFunc sync_oneway;
+};
+
+extern const GBinderIpcSyncApi gbinder_ipc_sync_main GBINDER_INTERNAL;
+extern const GBinderIpcSyncApi gbinder_ipc_sync_worker GBINDER_INTERNAL;
 
 GBinderIpc*
 gbinder_ipc_new(
@@ -84,13 +115,31 @@ gbinder_ipc_unref(
 
 void
 gbinder_ipc_looper_check(
-   GBinderIpc* ipc)
+    GBinderIpc* ipc)
     GBINDER_INTERNAL;
 
 GBinderObjectRegistry*
 gbinder_ipc_object_registry(
     GBinderIpc* ipc)
     GBINDER_INTERNAL;
+
+const GBinderIo*
+gbinder_ipc_io(
+    GBinderIpc* ipc)
+    GBINDER_INTERNAL;
+
+const GBinderRpcProtocol*
+gbinder_ipc_protocol(
+    GBinderIpc* ipc)
+    GBINDER_INTERNAL;
+
+GBinderLocalObject*
+gbinder_ipc_find_local_object(
+    GBinderIpc* ipc,
+    GBinderIpcLocalObjectCheckFunc func,
+    void* user_data)
+    GBINDER_INTERNAL
+    G_GNUC_WARN_UNUSED_RESULT;
 
 void
 gbinder_ipc_register_local_object(
@@ -99,11 +148,10 @@ gbinder_ipc_register_local_object(
     GBINDER_INTERNAL;
 
 GBinderRemoteObject*
-gbinder_ipc_get_remote_object(
-    GBinderIpc* ipc,
-    guint32 handle,
-    gboolean maybe_dead)
-    GBINDER_INTERNAL;
+gbinder_ipc_get_service_manager(
+    GBinderIpc* self)
+    GBINDER_INTERNAL
+    G_GNUC_WARN_UNUSED_RESULT;
 
 void
 gbinder_ipc_invalidate_remote_handle(
@@ -111,21 +159,11 @@ gbinder_ipc_invalidate_remote_handle(
     guint32 handle)
     GBINDER_INTERNAL;
 
-GBinderRemoteReply*
-gbinder_ipc_transact_sync_reply(
-    GBinderIpc* ipc,
-    guint32 handle,
-    guint32 code,
-    GBinderLocalRequest* req,
-    int* status)
-    GBINDER_INTERNAL;
-
 int
-gbinder_ipc_transact_sync_oneway(
+gbinder_ipc_ping_sync(
     GBinderIpc* ipc,
     guint32 handle,
-    guint32 code,
-    GBinderLocalRequest* req)
+    const GBinderIpcSyncApi* api)
     GBINDER_INTERNAL;
 
 gulong

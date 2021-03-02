@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018 Jolla Ltd.
- * Copyright (C) 2018 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -14,8 +14,8 @@
  *      notice, this list of conditions and the following disclaimer in the
  *      documentation and/or other materials provided with the distribution.
  *   3. Neither the names of the copyright holders nor the names of its
- *      contributors may be used to endorse or promote products derived from
- *      this software without specific prior written permission.
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -43,6 +43,7 @@ struct gbinder_local_reply {
     gint refcount;
     GBinderWriterData data;
     GBinderOutputData out;
+    GBinderBufferContents* contents;
 };
 
 GBINDER_INLINE_FUNC
@@ -94,14 +95,16 @@ gbinder_local_reply_new(
 }
 
 GBinderLocalReply*
-gbinder_local_reply_new_from_data(
-    GBinderBuffer* buffer)
+gbinder_local_reply_set_contents(
+    GBinderLocalReply* self,
+    GBinderBuffer* buffer,
+    GBinderObjectConverter* convert)
 {
-    const GBinderIo* io = gbinder_buffer_io(buffer);
-    GBinderLocalReply* self = gbinder_local_reply_new(io);
-
     if (self) {
-        gbinder_writer_data_set_contents(&self->data, buffer);
+        gbinder_writer_data_set_contents(&self->data, buffer, convert);
+        gbinder_buffer_contents_unref(self->contents);
+        self->contents = gbinder_buffer_contents_ref
+            (gbinder_buffer_contents(buffer));
     }
     return self;
 }
@@ -116,7 +119,8 @@ gbinder_local_reply_free(
     gutil_int_array_free(data->offsets, TRUE);
     g_byte_array_free(data->bytes, TRUE);
     gbinder_cleanup_free(data->cleanup);
-    g_slice_free(GBinderLocalReply, self);
+    gbinder_buffer_contents_unref(self->contents);
+    gutil_slice_free(self);
 }
 
 GBinderLocalReply*
@@ -147,6 +151,13 @@ gbinder_local_reply_data(
     GBinderLocalReply* self)
 {
     return G_LIKELY(self) ? &self->out :  NULL;
+}
+
+GBinderBufferContents*
+gbinder_local_reply_contents(
+    GBinderLocalReply* self)
+{
+    return G_LIKELY(self) ? self->contents :  NULL;
 }
 
 void

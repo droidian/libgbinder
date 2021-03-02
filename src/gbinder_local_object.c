@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -34,6 +34,7 @@
 
 #include "gbinder_driver.h"
 #include "gbinder_ipc.h"
+#include "gbinder_buffer_p.h"
 #include "gbinder_local_object_p.h"
 #include "gbinder_local_reply_p.h"
 #include "gbinder_remote_request.h"
@@ -41,6 +42,7 @@
 #include "gbinder_log.h"
 
 #include <gutil_strv.h>
+#include <gutil_macros.h>
 
 #include <errno.h>
 
@@ -51,8 +53,14 @@ struct gbinder_local_object_priv {
     void* user_data;
 };
 
+typedef struct gbinder_local_object_acquire_data {
+    GBinderLocalObject* object;
+    GBinderBufferContentsList* bufs;
+} GBinderLocalObjectAcquireData;
+
 G_DEFINE_TYPE(GBinderLocalObject, gbinder_local_object, G_TYPE_OBJECT)
 
+#define PARENT_CLASS gbinder_local_object_parent_class
 #define GBINDER_LOCAL_OBJECT_GET_CLASS(obj) \
     G_TYPE_INSTANCE_GET_CLASS((obj), GBINDER_TYPE_LOCAL_OBJECT, \
     GBinderLocalObjectClass)
@@ -258,6 +266,18 @@ gbinder_local_object_default_handle_looper_transaction(
 
 static
 void
+gbinder_local_object_default_drop(
+    GBinderLocalObject* self)
+{
+    GBinderLocalObjectPriv* priv = self->priv;
+
+    /* Clear the transaction callback */
+    priv->txproc = NULL;
+    priv->user_data = NULL;
+}
+
+static
+void
 gbinder_local_object_handle_later(
     GBinderLocalObject* self,
     GSourceFunc function)
@@ -272,10 +292,10 @@ gbinder_local_object_handle_later(
 
 static
 gboolean
-gbinder_local_object_handle_increfs_proc(
-    gpointer local)
+gbinder_local_object_increfs_proc(
+    gpointer user_data)
 {
-    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(local);
+    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(user_data);
 
     self->weak_refs++;
     g_signal_emit(self, gbinder_local_object_signals
@@ -285,10 +305,10 @@ gbinder_local_object_handle_increfs_proc(
 
 static
 gboolean
-gbinder_local_object_handle_decrefs_proc(
-    gpointer local)
+gbinder_local_object_decrefs_proc(
+    gpointer user_data)
 {
-    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(local);
+    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(user_data);
 
     GASSERT(self->weak_refs > 0);
     self->weak_refs--;
@@ -298,30 +318,66 @@ gbinder_local_object_handle_decrefs_proc(
 }
 
 static
-gboolean
-gbinder_local_object_handle_acquire_proc(
-    gpointer local)
+void
+gbinder_local_object_default_acquire(
+    GBinderLocalObject* self)
 {
-    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(local);
-
     self->strong_refs++;
+    gbinder_local_object_ref(self);
+    GVERBOSE_("%p => %d", self, self->strong_refs);
     g_signal_emit(self, gbinder_local_object_signals
         [SIGNAL_STRONG_REFS_CHANGED], 0);
-    return G_SOURCE_REMOVE;
 }
 
 static
 gboolean
-gbinder_local_object_handle_release_proc(
-    gpointer local)
+gbinder_local_object_acquire_proc(
+    gpointer user_data)
 {
-    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(local);
+    GBinderLocalObjectAcquireData* data = user_data;
+    GBinderLocalObject* self = data->object;
 
-    GASSERT(self->strong_refs > 0);
-    self->strong_refs--;
-    g_signal_emit(self, gbinder_local_object_signals
-        [SIGNAL_STRONG_REFS_CHANGED], 0);
+    GBINDER_LOCAL_OBJECT_GET_CLASS(self)->acquire(self);
+    return G_SOURCE_REMOVE;
+}
+
+static
+void
+gbinder_local_object_acquire_done(
+    gpointer user_data)
+{
+    GBinderLocalObjectAcquireData* data = user_data;
+    GBinderLocalObject* self = data->object;
+
+    gbinder_driver_acquire_done(self->ipc->driver, self);
     gbinder_local_object_unref(self);
+    gbinder_buffer_contents_list_free(data->bufs);
+    return gutil_slice_free(data);
+}
+
+static
+void
+gbinder_local_object_default_release(
+    GBinderLocalObject* self)
+{
+    GASSERT(self->strong_refs > 0);
+    if (self->strong_refs > 0) {
+        self->strong_refs--;
+        GVERBOSE_("%p => %d", self, self->strong_refs);
+        g_signal_emit(self, gbinder_local_object_signals
+            [SIGNAL_STRONG_REFS_CHANGED], 0);
+        gbinder_local_object_unref(self);
+    }
+}
+
+static
+gboolean
+gbinder_local_object_release_proc(
+    gpointer obj)
+{
+    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(obj);
+
+    GBINDER_LOCAL_OBJECT_GET_CLASS(self)->release(self);
     return G_SOURCE_REMOVE;
 }
 
@@ -336,13 +392,24 @@ gbinder_local_object_new(
     GBinderLocalTransactFunc txproc,
     void* user_data) /* Since 1.0.30 */
 {
-    if (G_LIKELY(ipc)) {
-        GBinderLocalObject* self = g_object_new
-            (GBINDER_TYPE_LOCAL_OBJECT, NULL);
+    return gbinder_local_object_new_with_type(GBINDER_TYPE_LOCAL_OBJECT,
+        ipc, ifaces, txproc, user_data);
+}
 
-        gbinder_local_object_init_base(self, ipc, ifaces, txproc, user_data);
-        gbinder_ipc_register_local_object(ipc, self);
-        return self;
+GBinderLocalObject*
+gbinder_local_object_new_with_type(
+    GType type,
+    GBinderIpc* ipc,
+    const char* const* ifaces,
+    GBinderLocalTransactFunc txproc,
+    void* arg)
+{
+    if (G_LIKELY(ipc)) {
+        GBinderLocalObject* obj = g_object_new(type, NULL);
+
+        gbinder_local_object_init_base(obj, ipc, ifaces, txproc, arg);
+        gbinder_ipc_register_local_object(ipc, obj);
+        return obj;
     }
     return NULL;
 }
@@ -409,11 +476,7 @@ gbinder_local_object_drop(
     GBinderLocalObject* self)
 {
     if (G_LIKELY(self)) {
-        GBinderLocalObjectPriv* priv = self->priv;
-
-        /* Clear the transaction callback */
-        priv->txproc = NULL;
-        priv->user_data = NULL;
+        GBINDER_LOCAL_OBJECT_GET_CLASS(self)->drop(self);
         g_object_unref(GBINDER_LOCAL_OBJECT(self));
     }
 }
@@ -507,33 +570,51 @@ void
 gbinder_local_object_handle_increfs(
     GBinderLocalObject* self)
 {
-    gbinder_local_object_handle_later(self,
-        gbinder_local_object_handle_increfs_proc);
+    gbinder_local_object_handle_later(self, gbinder_local_object_increfs_proc);
 }
 
 void
 gbinder_local_object_handle_decrefs(
     GBinderLocalObject* self)
 {
-    gbinder_local_object_handle_later(self,
-        gbinder_local_object_handle_decrefs_proc);
+    gbinder_local_object_handle_later(self, gbinder_local_object_decrefs_proc);
 }
 
 void
 gbinder_local_object_handle_acquire(
-    GBinderLocalObject* self)
+    GBinderLocalObject* self,
+    GBinderBufferContentsList* bufs)
 {
-    gbinder_local_object_ref(self);
-    gbinder_local_object_handle_later(self,
-        gbinder_local_object_handle_acquire_proc);
+    if (G_LIKELY(self)) {
+        GBinderLocalObjectPriv* priv = self->priv;
+        GBinderLocalObjectAcquireData* data =
+            g_slice_new(GBinderLocalObjectAcquireData);
+
+        /*
+         * This is a bit complicated :)
+         * GBinderProxyObject derived from GBinderLocalObject acquires a
+         * reference to the remote object in addition to performing the
+         * default GBinderLocalObject action later on the main thread.
+         * We must ensure that remote object doesn't go away before we
+         * acquire our reference to it. One of the references to that
+         * remote object (possibly the last one) may be associated with
+         * the transaction buffer contained in GBinderBufferContentsList.
+         * We don't know exactly which one we need, so we keep all those
+         * buffers alive until we are done with BR_ACQUIRE.
+         */
+        data->object = gbinder_local_object_ref(self);
+        data->bufs = gbinder_buffer_contents_list_dup(bufs);
+        g_main_context_invoke_full(priv->context, G_PRIORITY_DEFAULT,
+            gbinder_local_object_acquire_proc, data,
+            gbinder_local_object_acquire_done);
+    }
 }
 
 void
 gbinder_local_object_handle_release(
     GBinderLocalObject* self)
 {
-    gbinder_local_object_handle_later(self,
-        gbinder_local_object_handle_release_proc);
+    gbinder_local_object_handle_later(self, gbinder_local_object_release_proc);
 }
 
 /*==========================================================================*
@@ -555,26 +636,26 @@ gbinder_local_object_init(
 static
 void
 gbinder_local_object_dispose(
-    GObject* local)
+    GObject* object)
 {
-    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(local);
+    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(object);
 
     gbinder_ipc_local_object_disposed(self->ipc, self);
-    G_OBJECT_CLASS(gbinder_local_object_parent_class)->dispose(local);
+    G_OBJECT_CLASS(PARENT_CLASS)->dispose(object);
 }
 
 static
 void
 gbinder_local_object_finalize(
-    GObject* local)
+    GObject* object)
 {
-    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(local);
+    GBinderLocalObject* self = GBINDER_LOCAL_OBJECT(object);
     GBinderLocalObjectPriv* priv = self->priv;
 
     GASSERT(!self->strong_refs);
     gbinder_ipc_unref(self->ipc);
     g_strfreev(priv->ifaces);
-    G_OBJECT_CLASS(gbinder_local_object_parent_class)->finalize(local);
+    G_OBJECT_CLASS(PARENT_CLASS)->finalize(object);
 }
 
 static
@@ -594,6 +675,9 @@ gbinder_local_object_class_init(
         gbinder_local_object_default_handle_looper_transaction;
     klass->can_handle_transaction =
         gbinder_local_object_default_can_handle_transaction;
+    klass->acquire = gbinder_local_object_default_acquire;
+    klass->release = gbinder_local_object_default_release;
+    klass->drop = gbinder_local_object_default_drop;
 
     gbinder_local_object_signals[SIGNAL_WEAK_REFS_CHANGED] =
         g_signal_new(SIGNAL_WEAK_REFS_CHANGED_NAME,

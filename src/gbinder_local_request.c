@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018 Jolla Ltd.
- * Copyright (C) 2018 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -14,8 +14,8 @@
  *      notice, this list of conditions and the following disclaimer in the
  *      documentation and/or other materials provided with the distribution.
  *   3. Neither the names of the copyright holders nor the names of its
- *      contributors may be used to endorse or promote products derived from
- *      this software without specific prior written permission.
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -31,6 +31,7 @@
  */
 
 #include "gbinder_local_request_p.h"
+#include "gbinder_rpc_protocol.h"
 #include "gbinder_output_data.h"
 #include "gbinder_writer_p.h"
 #include "gbinder_buffer_p.h"
@@ -91,6 +92,7 @@ gbinder_local_request_new(
         if (init) {
             gsize size;
             gconstpointer data = g_bytes_get_data(init, &size);
+
             writer->bytes = g_byte_array_sized_new(size);
             g_byte_array_append(writer->bytes, data, size);
         } else {
@@ -104,16 +106,46 @@ gbinder_local_request_new(
 }
 
 GBinderLocalRequest*
+gbinder_local_request_new_iface(
+    const GBinderIo* io,
+    const GBinderRpcProtocol* protocol,
+    const char* iface)
+{
+    GBinderLocalRequest* self = gbinder_local_request_new(io, NULL);
+
+    if (self && G_LIKELY(protocol) && G_LIKELY(iface)) {
+        GBinderWriter writer;
+
+        gbinder_local_request_init_writer(self, &writer);
+        protocol->write_rpc_header(&writer, iface);
+    }
+    return self;
+}
+
+GBinderLocalRequest*
 gbinder_local_request_new_from_data(
-    GBinderBuffer* buffer)
+    GBinderBuffer* buffer,
+    GBinderObjectConverter* convert)
 {
     GBinderLocalRequest* self = gbinder_local_request_new
         (gbinder_buffer_io(buffer), NULL);
 
     if (self) {
-        gbinder_writer_data_set_contents(&self->data, buffer);
+        gbinder_writer_data_append_contents(&self->data, buffer, 0, convert);
     }
     return self;
+}
+
+void
+gbinder_local_request_append_contents(
+    GBinderLocalRequest* self,
+    GBinderBuffer* buffer,
+    gsize off,
+    GBinderObjectConverter* convert)
+{
+    if (self) {
+        gbinder_writer_data_append_contents(&self->data, buffer, off, convert);
+    }
 }
 
 static

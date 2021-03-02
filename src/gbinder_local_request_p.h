@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -43,14 +43,30 @@ gbinder_local_request_new(
     GBytes* init)
     GBINDER_INTERNAL;
 
+GBinderLocalRequest*
+gbinder_local_request_new_iface(
+    const GBinderIo* io,
+    const GBinderRpcProtocol* protocol,
+    const char* iface)
+    GBINDER_INTERNAL;
+
+GBinderLocalRequest*
+gbinder_local_request_new_from_data(
+    GBinderBuffer* buffer,
+    GBinderObjectConverter* convert)
+    GBINDER_INTERNAL;
+
 GBinderOutputData*
 gbinder_local_request_data(
     GBinderLocalRequest* req)
     GBINDER_INTERNAL;
 
-GBinderLocalRequest*
-gbinder_local_request_new_from_data(
-    GBinderBuffer* buffer)
+void
+gbinder_local_request_append_contents(
+    GBinderLocalRequest* req,
+    GBinderBuffer* buffer,
+    gsize offset,
+    GBinderObjectConverter* convert)
     GBINDER_INTERNAL;
 
 #endif /* GBINDER_LOCAL_REQUEST_PRIVATE_H */

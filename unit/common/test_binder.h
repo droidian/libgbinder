@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -113,15 +113,32 @@ test_binder_br_reply_status_later(
     int fd,
     gint32 status);
 
+typedef enum test_looper {
+    TEST_LOOPER_DISABLE,
+    TEST_LOOPER_ENABLE,
+    TEST_LOOPER_ENABLE_ONE
+} TEST_LOOPER;
+
 void
 test_binder_set_looper_enabled(
     int fd,
-    gboolean enabled);
+    TEST_LOOPER value);
 
 void
 test_binder_set_passthrough(
     int fd,
     gboolean passthrough);
+
+int
+test_binder_handle(
+    int fd,
+    GBinderLocalObject* obj);
+
+GBinderLocalObject*
+test_binder_object(
+    int fd,
+    guint handle)
+    G_GNUC_WARN_UNUSED_RESULT; /* Need to unref */
 
 guint
 test_binder_register_object(
@@ -143,7 +160,8 @@ test_binder_set_destroy(
 
 void
 test_binder_exit_wait(
-    void);
+    const TestOpt* opt,
+    GMainLoop* loop);
 
 #endif /* TEST_BINDER_H */
 

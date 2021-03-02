@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -53,6 +53,11 @@ gbinder_driver_unref(
     GBinderDriver* driver)
     GBINDER_INTERNAL;
 
+void
+gbinder_driver_close(
+    GBinderDriver* driver)
+    GBINDER_INTERNAL;
+
 int
 gbinder_driver_fd(
     GBinderDriver* driver)
@@ -72,6 +77,23 @@ gbinder_driver_dev(
 const GBinderIo*
 gbinder_driver_io(
     GBinderDriver* driver)
+    GBINDER_INTERNAL;
+
+const GBinderRpcProtocol*
+gbinder_driver_protocol(
+    GBinderDriver* driver)
+    GBINDER_INTERNAL;
+
+gboolean
+gbinder_driver_acquire_done(
+    GBinderDriver* driver,
+    GBinderLocalObject* obj)
+    GBINDER_INTERNAL;
+
+gboolean
+gbinder_driver_dead_binder_done(
+    GBinderDriver* driver,
+    GBinderRemoteObject* obj)
     GBINDER_INTERNAL;
 
 gboolean
@@ -112,7 +134,7 @@ gbinder_driver_release(
 
 void
 gbinder_driver_close_fds(
-    GBinderDriver* self,
+    GBinderDriver* driver,
     void** objects,
     const void* end)
     GBINDER_INTERNAL;
@@ -151,17 +173,15 @@ gbinder_driver_transact(
     GBinderRemoteReply* reply)
     GBINDER_INTERNAL;
 
-int
-gbinder_driver_ping(
+GBinderLocalRequest*
+gbinder_driver_local_request_new(
     GBinderDriver* driver,
-    GBinderObjectRegistry* reg,
-    guint32 handle)
+    const char* iface)
     GBINDER_INTERNAL;
 
 GBinderLocalRequest*
-gbinder_driver_local_request_new(
-    GBinderDriver* self,
-    const char* iface)
+gbinder_driver_local_request_new_ping(
+    GBinderDriver* self)
     GBINDER_INTERNAL;
 
 #endif /* GBINDER_DRIVER_H */

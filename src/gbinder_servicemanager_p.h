@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -39,9 +39,6 @@
 
 #include <glib-object.h>
 
-/* As a special case, ServiceManager's handle is zero */
-#define GBINDER_SERVICEMANAGER_HANDLE (0)
-
 typedef struct gbinder_servicemanager_priv GBinderServiceManagerPriv;
 
 typedef struct gbinder_servicemanager {
@@ -66,12 +63,11 @@ typedef struct gbinder_servicemanager_class {
     const char* default_device;
 
     /* Methods (synchronous) */
-    char** (*list)(GBinderServiceManager* self);
-    GBinderRemoteObject* (*get_service)
-        (GBinderServiceManager* self, const char* name, int* status);
-    int (*add_service)
-        (GBinderServiceManager* self, const char* name,
-            GBinderLocalObject* obj);
+    char** (*list)(GBinderServiceManager* self, const GBinderIpcSyncApi* api);
+    GBinderRemoteObject* (*get_service)(GBinderServiceManager* self,
+        const char* name, int* status, const GBinderIpcSyncApi* api);
+    int (*add_service)(GBinderServiceManager* self, const char* name,
+        GBinderLocalObject* obj, const GBinderIpcSyncApi* api);
 
     /* Checking/normalizing watch names */
     GBINDER_SERVICEMANAGER_NAME_CHECK (*check_name)
@@ -88,6 +84,8 @@ GType gbinder_servicemanager_get_type(void) GBINDER_INTERNAL;
 #define GBINDER_SERVICEMANAGER_CLASS(klass) \
     G_TYPE_CHECK_CLASS_CAST((klass), GBINDER_TYPE_SERVICEMANAGER, \
     GBinderServiceManagerClass)
+
+#define gbinder_servicemanager_ipc(sm) gbinder_client_ipc(sm->client)
 
 GBinderServiceManager*
 gbinder_servicemanager_new_with_type(

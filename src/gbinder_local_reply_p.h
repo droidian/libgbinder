@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -47,9 +47,16 @@ gbinder_local_reply_data(
     GBinderLocalReply* reply)
     GBINDER_INTERNAL;
 
+GBinderBufferContents*
+gbinder_local_reply_contents(
+    GBinderLocalReply* reply)
+    GBINDER_INTERNAL;
+
 GBinderLocalReply*
-gbinder_local_reply_new_from_data(
-    GBinderBuffer* buffer)
+gbinder_local_reply_set_contents(
+    GBinderLocalReply* reply,
+    GBinderBuffer* buffer,
+    GBinderObjectConverter* convert)
     GBINDER_INTERNAL;
 
 #endif /* GBINDER_LOCAL_REPLY_PRIVATE_H */

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018 Jolla Ltd.
- * Copyright (C) 2018 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -14,8 +14,8 @@
  *      notice, this list of conditions and the following disclaimer in the
  *      documentation and/or other materials provided with the distribution.
  *   3. Neither the names of the copyright holders nor the names of its
- *      contributors may be used to endorse or promote products derived from
- *      this software without specific prior written permission.
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -34,8 +34,10 @@
 #include "gbinder_reader_p.h"
 #include "gbinder_rpc_protocol.h"
 #include "gbinder_local_request_p.h"
+#include "gbinder_object_converter.h"
 #include "gbinder_object_registry.h"
 #include "gbinder_buffer_p.h"
+#include "gbinder_driver.h"
 #include "gbinder_log.h"
 
 #include <gutil_macros.h>
@@ -85,7 +87,33 @@ gbinder_remote_request_copy_to_local(
     if (G_LIKELY(self)) {
         GBinderReaderData* d = &self->data;
 
-        return gbinder_local_request_new_from_data(d->buffer);
+        return gbinder_local_request_new_from_data(d->buffer, NULL);
+    }
+    return NULL;
+}
+
+GBinderLocalRequest*
+gbinder_remote_request_convert_to_local(
+    GBinderRemoteRequest* req,
+    GBinderObjectConverter* convert)
+{
+    GBinderRemoteRequestPriv* self = gbinder_remote_request_cast(req);
+
+    if (G_LIKELY(self)) {
+        GBinderReaderData* data = &self->data;
+
+        if (!convert || convert->protocol == self->protocol) {
+            /* The same protocol, the same format of RPC header */
+            return gbinder_local_request_new_from_data(data->buffer, convert);
+        } else {
+            /* Need to translate to another format */
+            GBinderLocalRequest* local = gbinder_local_request_new_iface
+                (convert->io, convert->protocol, self->iface);
+
+            gbinder_local_request_append_contents(local, data->buffer,
+                self->header_size, convert);
+            return local;
+        }
     }
     return NULL;
 }

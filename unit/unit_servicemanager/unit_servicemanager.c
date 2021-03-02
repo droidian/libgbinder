@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -39,6 +39,7 @@
 #include "gbinder_ipc.h"
 #include "gbinder_local_object_p.h"
 #include "gbinder_servicemanager_p.h"
+#include "gbinder_object_registry.h"
 #include "gbinder_rpc_protocol.h"
 
 #include <gutil_strv.h>
@@ -157,7 +158,8 @@ typedef struct test_servicemanager {
 static
 char**
 test_servicemanager_list(
-    GBinderServiceManager* sm)
+    GBinderServiceManager* sm,
+    const GBinderIpcSyncApi* api)
 {
     TestServiceManager* self = TEST_SERVICEMANAGER(sm);
 
@@ -169,14 +171,16 @@ GBinderRemoteObject*
 test_servicemanager_get_service(
     GBinderServiceManager* sm,
     const char* name,
-    int* status)
+    int* status,
+    const GBinderIpcSyncApi* api)
 {
     TestServiceManager* self = TEST_SERVICEMANAGER(sm);
 
     if (gutil_strv_contains(self->services, name)) {
         if (!self->remote) {
-            self->remote = gbinder_ipc_get_remote_object
-                (gbinder_client_ipc(sm->client), 1, TRUE);
+            self->remote = gbinder_object_registry_get_remote
+                (gbinder_ipc_object_registry(gbinder_client_ipc(sm->client)),
+                     1, TRUE);
         }
         *status = GBINDER_STATUS_OK;
         return gbinder_remote_object_ref(self->remote);
@@ -191,7 +195,8 @@ int
 test_servicemanager_add_service(
     GBinderServiceManager* sm,
     const char* name,
-    GBinderLocalObject* obj)
+    GBinderLocalObject* obj,
+    const GBinderIpcSyncApi* api)
 {
     TestServiceManager* self = TEST_SERVICEMANAGER(sm);
 
@@ -488,6 +493,7 @@ test_basic(
     gbinder_servicemanager_unref(sm);
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
 }
 
 /*==========================================================================*
@@ -530,6 +536,7 @@ test_legacy(
 
     gbinder_ipc_unref(ipc);
     gbinder_servicemanager_exit();
+    gbinder_ipc_exit();
 }
 
 /*==========================================================================*
@@ -679,6 +686,7 @@ test_wait(
     gbinder_servicemanager_remove_handler(sm, id);
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
 }
 
 /*==========================================================================*
@@ -724,6 +732,7 @@ test_wait_long(
     gbinder_servicemanager_remove_handler(sm, id);
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
 }
 
 /*==========================================================================*
@@ -767,6 +776,7 @@ test_wait_async(
     gbinder_servicemanager_remove_all_handlers(sm, id);
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
     g_main_loop_unref(loop);
 }
 
@@ -776,8 +786,7 @@ test_wait_async(
 
 static
 void
-test_death(
-    void)
+test_death_run()
 {
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     GBinderIpc* ipc = gbinder_ipc_new(dev);
@@ -803,7 +812,7 @@ test_death(
 
     /* Generate death notification (need looper for that) */
     test_binder_br_dead_binder(fd, 0);
-    test_binder_set_looper_enabled(fd, TRUE);
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE);
     test_run(&test_opt, loop);
 
     /* No registrations must have occured */
@@ -816,7 +825,15 @@ test_death(
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
+}
+
+static
+void
+test_death()
+{
+    test_run_in_context(&test_opt, test_death_run);
 }
 
 /*==========================================================================*
@@ -837,7 +854,7 @@ test_reanimate_quit(
 
         /* Disable looper and reanimate the object */
         GDEBUG("Reanimating...");
-        test_binder_set_looper_enabled(fd, FALSE);
+        test_binder_set_looper_enabled(fd, TEST_LOOPER_DISABLE);
         test_binder_br_transaction_complete(fd);
         test_binder_br_reply(fd, 0, 0, NULL);
     }
@@ -874,7 +891,7 @@ test_reanimate(
 
     /* Generate death notification (need looper for that) */
     test_binder_br_dead_binder(fd, 0);
-    test_binder_set_looper_enabled(fd, TRUE);
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE);
     test_run(&test_opt, loop);
 
     /* No registrations must have occured */
@@ -888,6 +905,7 @@ test_reanimate(
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -945,6 +963,7 @@ test_reuse(
     gbinder_ipc_unref(binder_ipc);
     gbinder_ipc_unref(vndbinder_ipc);
     gbinder_ipc_unref(hwbinder_ipc);
+    gbinder_ipc_exit();
 }
 
 /*==========================================================================*
@@ -989,6 +1008,7 @@ test_notify_type(
     gbinder_servicemanager_remove_handler(sm, id2);
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
 }
 
 static
@@ -1046,6 +1066,7 @@ test_list(
 
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
     g_main_loop_unref(loop);
 }
 
@@ -1109,6 +1130,7 @@ test_get(
 
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
     g_main_loop_unref(loop);
 }
 
@@ -1153,8 +1175,10 @@ test_add(
     test_run(&test_opt, loop);
     g_assert(gutil_strv_contains(test->services, "foo"));
 
+    gbinder_local_object_unref(obj);
     gbinder_servicemanager_unref(sm);
     gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
     g_main_loop_unref(loop);
 }
 

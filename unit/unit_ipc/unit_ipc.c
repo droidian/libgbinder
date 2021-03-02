@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -84,10 +84,16 @@ test_null(
 
     g_assert(!gbinder_ipc_ref(null));
     gbinder_ipc_unref(null);
-    g_assert(!gbinder_ipc_transact_sync_reply(null, 0, 0, NULL, NULL));
-    g_assert(!gbinder_ipc_transact_sync_reply(null, 0, 0, NULL, &status));
-    g_assert(status == (-EINVAL));
-    g_assert(gbinder_ipc_transact_sync_oneway(null, 0, 0, NULL) == (-EINVAL));
+    g_assert(!gbinder_ipc_sync_main.sync_reply(null, 0, 0, NULL, NULL));
+    g_assert(!gbinder_ipc_sync_main.sync_reply(null, 0, 0, NULL, &status));
+    g_assert_cmpint(status, == ,-EINVAL);
+    g_assert(!gbinder_ipc_sync_worker.sync_reply(null, 0, 0, NULL, NULL));
+    g_assert(!gbinder_ipc_sync_worker.sync_reply(null, 0, 0, NULL, &status));
+    g_assert_cmpint(status, == ,-EINVAL);
+    g_assert_cmpint(gbinder_ipc_sync_main.sync_oneway(null, 0, 0, NULL), == ,
+        -EINVAL);
+    g_assert_cmpint(gbinder_ipc_sync_worker.sync_oneway(null, 0, 0, NULL), == ,
+        -EINVAL);
     g_assert(!gbinder_ipc_transact(null, 0, 0, 0, NULL, NULL, NULL, NULL));
     g_assert(!gbinder_ipc_transact_custom(null, NULL, NULL, NULL, NULL));
     g_assert(!gbinder_ipc_object_registry(null));
@@ -97,12 +103,22 @@ test_null(
     g_assert(!gbinder_object_registry_ref(NULL));
     gbinder_object_registry_unref(NULL);
     g_assert(!gbinder_object_registry_get_local(NULL, NULL));
-    g_assert(!gbinder_object_registry_get_remote(NULL, 0));
+    g_assert(!gbinder_object_registry_get_remote(NULL, 0, FALSE));
+    g_assert(!gbinder_ipc_find_local_object(NULL, NULL, NULL));
 }
 
 /*==========================================================================*
  * basic
  *==========================================================================*/
+
+static
+gboolean
+test_basic_find_none(
+    GBinderLocalObject* obj,
+    void* user_data)
+{
+    return FALSE;
+}
 
 static
 void
@@ -118,6 +134,9 @@ test_basic(
     gbinder_ipc_cancel(ipc2, 0); /* not a valid transaction */
     gbinder_ipc_unref(ipc2);
 
+    g_assert(!gbinder_ipc_find_local_object(NULL, test_basic_find_none, NULL));
+    g_assert(!gbinder_ipc_find_local_object(ipc, test_basic_find_none, NULL));
+
     /* Second gbinder_ipc_new returns the same (default) object */
     g_assert(gbinder_ipc_new(NULL) == ipc);
     g_assert(gbinder_ipc_new("") == ipc);
@@ -129,7 +148,7 @@ test_basic(
     g_assert(!gbinder_ipc_new("invalid path"));
 
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -187,12 +206,11 @@ test_sync_oneway(
     GBinderLocalRequest* req = gbinder_local_request_new(io, NULL);
 
     test_binder_br_transaction_complete(fd);
-    g_assert(gbinder_ipc_transact_sync_oneway(ipc, 0, 1, req) ==
-        GBINDER_STATUS_OK);
+    g_assert_cmpint(gbinder_ipc_sync_main.sync_oneway(ipc, 0, 1, req), == ,0);
     gbinder_local_request_unref(req);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -225,7 +243,7 @@ test_sync_reply_ok_status(
     test_binder_br_noop(fd);
     test_binder_br_reply(fd, handle, code, data->bytes);
 
-    tx_reply = gbinder_ipc_transact_sync_reply(ipc, handle, code, req, status);
+    tx_reply = gbinder_ipc_sync_main.sync_reply(ipc, handle, code, req, status);
     g_assert(tx_reply);
 
     result_out = gbinder_remote_reply_read_string16(tx_reply);
@@ -237,7 +255,7 @@ test_sync_reply_ok_status(
     gbinder_local_reply_unref(reply);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 static
@@ -267,7 +285,8 @@ test_sync_reply_error(
     GBinderLocalRequest* req = gbinder_local_request_new(io, NULL);
     const guint32 handle = 0;
     const guint32 code = 1;
-    const gint expected_status = GBINDER_STATUS_FAILED;
+    const gint expected_status = (-EINVAL);
+    const gint unexpected_status = GBINDER_STATUS_FAILED;
     int status = INT_MAX;
 
     test_binder_br_noop(fd);
@@ -275,13 +294,22 @@ test_sync_reply_error(
     test_binder_br_noop(fd);
     test_binder_br_reply_status(fd, expected_status);
 
-    g_assert(!gbinder_ipc_transact_sync_reply(ipc, handle, code, req, &status));
-    g_assert(status == expected_status);
+    g_assert(!gbinder_ipc_sync_main.sync_reply(ipc,handle,code,req,&status));
+    g_assert_cmpint(status, == ,expected_status);
+
+    /* GBINDER_STATUS_FAILED gets replaced with -EFAULT */
+    test_binder_br_noop(fd);
+    test_binder_br_transaction_complete(fd);
+    test_binder_br_noop(fd);
+    test_binder_br_reply_status(fd, unexpected_status);
+
+    g_assert(!gbinder_ipc_sync_main.sync_reply(ipc,handle,code,req,&status));
+    g_assert_cmpint(status, == ,-EFAULT);
 
     gbinder_local_request_unref(req);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -352,7 +380,7 @@ test_transact_ok(
     gbinder_local_reply_unref(reply);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -400,7 +428,7 @@ test_transact_dead(
     gbinder_local_request_unref(req);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -448,7 +476,7 @@ test_transact_failed(
     gbinder_local_request_unref(req);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -498,7 +526,7 @@ test_transact_status(
     gbinder_local_request_unref(req);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -530,8 +558,8 @@ test_transact_custom(
 
     gbinder_ipc_exit();
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
-    test_binder_exit_wait();
 }
 
 /*==========================================================================*
@@ -562,8 +590,8 @@ test_transact_custom2(
 
     gbinder_ipc_exit();
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
-    test_binder_exit_wait();
 }
 
 /*==========================================================================*
@@ -596,7 +624,7 @@ test_transact_custom3(
 
     /* Reference to GBinderIpc is released by test_transact_custom3_exec */
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -646,7 +674,7 @@ test_transact_cancel(
 
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -692,7 +720,7 @@ test_transact_cancel2(
 
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -781,8 +809,60 @@ test_transact_2way(
     test_run(&test_opt, loop);
 
     gbinder_ipc_exit();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
-    test_binder_exit_wait();
+}
+
+/*==========================================================================*
+ * transact_unhandled
+ *==========================================================================*/
+
+static
+void
+test_transact_unhandled_done(
+    GBinderIpc* ipc,
+    GBinderRemoteReply* reply,
+    int status,
+    void* user_data)
+{
+    g_assert(!reply);
+    g_assert_cmpint(status, == ,GBINDER_STATUS_DEAD_OBJECT);
+    test_quit_later((GMainLoop*)user_data);
+}
+
+
+static
+void
+test_transact_unhandled_run(
+    void)
+{
+    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
+    GBinderDriver* driver = ipc->driver;
+    GMainLoop* loop = g_main_loop_new(NULL, FALSE);
+    GBinderLocalRequest* req = gbinder_driver_local_request_new_ping(driver);
+    int fd = gbinder_driver_fd(driver);
+
+    test_binder_set_passthrough(fd, TRUE);
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE);
+
+    g_assert(gbinder_ipc_transact(ipc, 1 /* Non-existent object */,
+        gbinder_driver_protocol(driver)->ping_tx, 0, req,
+        test_transact_unhandled_done, NULL, loop));
+    gbinder_local_request_unref(req);
+    test_run(&test_opt, loop);
+
+    gbinder_ipc_unref(ipc);
+    gbinder_ipc_exit();
+    test_binder_exit_wait(&test_opt, loop);
+    g_main_loop_unref(loop);
+}
+
+static
+void
+test_transact_unhandled(
+    void)
+{
+    test_run_in_context(&test_opt, test_transact_unhandled_run);
 }
 
 /*==========================================================================*
@@ -814,7 +894,7 @@ test_transact_incoming_proc(
 
 static
 void
-test_transact_incoming(
+test_transact_incoming_run(
     void)
 {
     GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
@@ -839,9 +919,11 @@ test_transact_incoming(
 
     test_binder_br_transaction(fd, obj, prot->ping_tx,
         gbinder_local_request_data(ping)->bytes);
+    test_binder_br_transaction_complete(fd); /* For reply */
     test_binder_br_transaction(fd, obj, 1,
         gbinder_local_request_data(req)->bytes);
-    test_binder_set_looper_enabled(fd, TRUE);
+    test_binder_br_transaction_complete(fd); /* For reply */
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE);
     test_run(&test_opt, loop);
 
     /* Now we need to wait until GBinderIpc is destroyed */
@@ -854,8 +936,16 @@ test_transact_incoming(
     test_run(&test_opt, loop);
 
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
+}
+
+static
+void
+test_transact_incoming(
+    void)
+{
+    test_run_in_context(&test_opt, test_transact_incoming_run);
 }
 
 /*==========================================================================*
@@ -885,7 +975,7 @@ test_transact_status_reply_proc(
 
 static
 void
-test_transact_status_reply(
+test_transact_status_reply_run(
     void)
 {
     GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
@@ -907,7 +997,8 @@ test_transact_status_reply(
     data = gbinder_local_request_data(req);
 
     test_binder_br_transaction(fd, obj, 1, data->bytes);
-    test_binder_set_looper_enabled(fd, TRUE);
+    test_binder_br_transaction_complete(fd); /* For reply */
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE_ONE);
     test_run(&test_opt, loop);
 
     /* Now we need to wait until GBinderIpc is destroyed */
@@ -919,8 +1010,16 @@ test_transact_status_reply(
     test_run(&test_opt, loop);
 
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
+}
+
+static
+void
+test_transact_status_reply(
+    void)
+{
+    test_run_in_context(&test_opt, test_transact_status_reply_run);
 }
 
 /*==========================================================================*
@@ -993,7 +1092,7 @@ test_transact_async_proc(
 
 static
 void
-test_transact_async(
+test_transact_async_run(
     void)
 {
     GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
@@ -1015,7 +1114,8 @@ test_transact_async(
     data = gbinder_local_request_data(req);
 
     test_binder_br_transaction(fd, obj, 1, data->bytes);
-    test_binder_set_looper_enabled(fd, TRUE);
+    test_binder_br_transaction_complete(fd); /* For reply */
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE_ONE);
     test_run(&test_opt, loop);
 
     /* Now we need to wait until GBinderIpc is destroyed */
@@ -1027,8 +1127,16 @@ test_transact_async(
     test_run(&test_opt, loop);
 
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
+}
+
+static
+void
+test_transact_async(
+    void)
+{
+    test_run_in_context(&test_opt, test_transact_async_run);
 }
 
 /*==========================================================================*
@@ -1067,7 +1175,7 @@ test_transact_async_sync_proc(
 
 static
 void
-test_transact_async_sync(
+test_transact_async_sync_run(
     void)
 {
     GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
@@ -1089,7 +1197,8 @@ test_transact_async_sync(
     data = gbinder_local_request_data(req);
 
     test_binder_br_transaction(fd, obj, 1, data->bytes);
-    test_binder_set_looper_enabled(fd, TRUE);
+    test_binder_br_transaction_complete(fd); /* For reply */
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE_ONE);
     test_run(&test_opt, loop);
 
     /* Now we need to wait until GBinderIpc is destroyed */
@@ -1101,8 +1210,16 @@ test_transact_async_sync(
     test_run(&test_opt, loop);
 
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
+}
+
+static
+void
+test_transact_async_sync(
+    void)
+{
+    test_run_in_context(&test_opt, test_transact_async_sync_run);
 }
 
 /*==========================================================================*
@@ -1122,7 +1239,7 @@ test_drop_remote_refs_cb(
 
 static
 void
-test_drop_remote_refs(
+test_drop_remote_refs_run(
     void)
 {
     GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
@@ -1134,7 +1251,7 @@ test_drop_remote_refs(
         test_drop_remote_refs_cb, loop);
 
     test_binder_br_acquire(fd, obj);
-    test_binder_set_looper_enabled(fd, TRUE);
+    test_binder_set_looper_enabled(fd, TEST_LOOPER_ENABLE);
     test_run(&test_opt, loop);
 
     g_assert(obj->strong_refs == 1);
@@ -1144,8 +1261,16 @@ test_drop_remote_refs(
     /* gbinder_ipc_exit will drop the remote reference */
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
+}
+
+static
+void
+test_drop_remote_refs(
+    void)
+{
+    test_run_in_context(&test_opt, test_drop_remote_refs_run);
 }
 
 /*==========================================================================*
@@ -1182,7 +1307,7 @@ test_cancel_on_exit(
     gbinder_local_request_unref(req);
     gbinder_ipc_unref(ipc);
     gbinder_ipc_exit();
-    test_binder_exit_wait();
+    test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
 }
 
@@ -1213,6 +1338,7 @@ int main(int argc, char* argv[])
     g_test_add_func(TEST_("transact_cancel2"), test_transact_cancel2);
     g_test_add_func(TEST_("transact_2way"), test_transact_2way);
     g_test_add_func(TEST_("transact_incoming"), test_transact_incoming);
+    g_test_add_func(TEST_("transact_unhandled"), test_transact_unhandled);
     g_test_add_func(TEST_("transact_status_reply"), test_transact_status_reply);
     g_test_add_func(TEST_("transact_async"), test_transact_async);
     g_test_add_func(TEST_("transact_async_sync"), test_transact_async_sync);

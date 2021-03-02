@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -199,7 +199,8 @@ gbinder_servicemanager_list_tx_exec(
 {
     GBinderServiceManagerListTxData* data = tx->user_data;
 
-    data->result = GBINDER_SERVICEMANAGER_GET_CLASS(data->sm)->list(data->sm);
+    data->result = GBINDER_SERVICEMANAGER_GET_CLASS(data->sm)->
+        list(data->sm, &gbinder_ipc_sync_worker);
 }
 
 static
@@ -243,8 +244,9 @@ gbinder_servicemanager_get_service_tx_exec(
 {
     GBinderServiceManagerGetServiceTxData* data = tx->user_data;
 
-    data->obj = GBINDER_SERVICEMANAGER_GET_CLASS(data->sm)->get_service
-            (data->sm, data->name, &data->status);
+    data->obj = GBINDER_SERVICEMANAGER_GET_CLASS(data->sm)->
+        get_service(data->sm, data->name, &data->status,
+            &gbinder_ipc_sync_worker);
 }
 
 static
@@ -286,8 +288,8 @@ gbinder_servicemanager_add_service_tx_exec(
 {
     GBinderServiceManagerAddServiceTxData* data = tx->user_data;
 
-    data->status = GBINDER_SERVICEMANAGER_GET_CLASS(data->sm)->add_service
-            (data->sm, data->name, data->obj);
+    data->status = GBINDER_SERVICEMANAGER_GET_CLASS(data->sm)->
+        add_service(data->sm, data->name, data->obj, &gbinder_ipc_sync_worker);
 }
 
 static
@@ -527,9 +529,8 @@ gbinder_servicemanager_new_with_type(
         if (!dev) dev = klass->default_device;
         ipc = gbinder_ipc_new(dev);
         if (ipc) {
-            /* Create a possibly dead remote object */
-            GBinderRemoteObject* object = gbinder_ipc_get_remote_object
-                (ipc, GBINDER_SERVICEMANAGER_HANDLE, TRUE);
+            /* Create a (possibly) dead service manager object */
+            GBinderRemoteObject* object = gbinder_ipc_get_service_manager(ipc);
 
             if (object) {
                 gboolean first_ref;
@@ -776,7 +777,8 @@ gbinder_servicemanager_list_sync(
     GBinderServiceManager* self)
 {
     if (G_LIKELY(self)) {
-        return GBINDER_SERVICEMANAGER_GET_CLASS(self)->list(self);
+        return GBINDER_SERVICEMANAGER_GET_CLASS(self)->
+            list(self, &gbinder_ipc_sync_main);
     }
     return NULL;
 }
@@ -815,8 +817,8 @@ gbinder_servicemanager_get_service_sync(
     GBinderRemoteObject* obj = NULL;
 
     if (G_LIKELY(self) && name) {
-        obj = GBINDER_SERVICEMANAGER_GET_CLASS(self)->get_service
-            (self, name, status);
+        obj = GBINDER_SERVICEMANAGER_GET_CLASS(self)->
+            get_service(self, name, status, &gbinder_ipc_sync_main);
         if (obj) {
             GBinderServiceManagerPriv* priv = self->priv;
 
@@ -866,8 +868,8 @@ gbinder_servicemanager_add_service_sync(
     GBinderLocalObject* obj)
 {
     if (G_LIKELY(self) && name && obj) {
-        return GBINDER_SERVICEMANAGER_GET_CLASS(self)->add_service
-            (self, name, obj);
+        return GBINDER_SERVICEMANAGER_GET_CLASS(self)->
+            add_service(self, name, obj, &gbinder_ipc_sync_main);
     } else {
         return (-EINVAL);
     }
