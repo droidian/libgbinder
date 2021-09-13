@@ -756,7 +756,7 @@ test_transact_2way_incoming_proc(
 
 static
 void
-test_transact_2way(
+test_transact_2way_run(
     void)
 {
     GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
@@ -811,6 +811,14 @@ test_transact_2way(
     gbinder_ipc_exit();
     test_binder_exit_wait(&test_opt, loop);
     g_main_loop_unref(loop);
+}
+
+static
+void
+test_transact_2way(
+    void)
+{
+    test_run_in_context(&test_opt, test_transact_2way_run);
 }
 
 /*==========================================================================*
@@ -1320,6 +1328,9 @@ test_cancel_on_exit(
 
 int main(int argc, char* argv[])
 {
+    G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
+    g_type_init();
+    G_GNUC_END_IGNORE_DEPRECATIONS;
     g_test_init(&argc, &argv, NULL);
     g_test_add_func(TEST_("null"), test_null);
     g_test_add_func(TEST_("basic"), test_basic);
