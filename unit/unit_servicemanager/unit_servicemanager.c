@@ -386,8 +386,17 @@ gbinder_servicemanager_aidl_get_type()
 GType
 gbinder_servicemanager_aidl2_get_type()
 {
-    /* Avoid pulling in gbinder_servicemanager_aidl2 object */
-    return TEST_TYPE_DEFSERVICEMANAGER;
+    /* Dummy function to avoid pulling in gbinder_servicemanager_aidl2 */
+    g_assert_not_reached();
+    return 0;
+}
+
+GType
+gbinder_servicemanager_aidl3_get_type()
+{
+    /* Dummy function to avoid pulling in gbinder_servicemanager_aidl3 */
+    g_assert_not_reached();
+    return 0;
 }
 
 /*==========================================================================*
@@ -403,6 +412,7 @@ test_null(
     g_assert(!gbinder_servicemanager_new_with_type(0, NULL));
     g_assert(!gbinder_servicemanager_new_local_object(NULL, NULL, NULL, NULL));
     g_assert(!gbinder_servicemanager_ref(NULL));
+    g_assert(!gbinder_servicemanager_device(NULL));
     g_assert(!gbinder_servicemanager_is_present(NULL));
     g_assert(!gbinder_servicemanager_wait(NULL, 0));
     g_assert(!gbinder_servicemanager_list(NULL, NULL, NULL));
@@ -487,6 +497,7 @@ test_basic(
     obj = gbinder_servicemanager_new_local_object(sm, "foo.bar",
         test_transact_func, NULL);
     g_assert(obj);
+    g_assert_cmpstr(gbinder_servicemanager_device(sm), == ,dev);
     gbinder_local_object_unref(obj);
 
     g_assert(gbinder_servicemanager_ref(sm) == sm);

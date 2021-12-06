@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018 Jolla Ltd.
- * Copyright (C) 2018 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -14,8 +14,8 @@
  *      notice, this list of conditions and the following disclaimer in the
  *      documentation and/or other materials provided with the distribution.
  *   3. Neither the names of the copyright holders nor the names of its
- *      contributors may be used to endorse or promote products derived from
- *      this software without specific prior written permission.
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -119,15 +119,11 @@ gbinder_writer_append_fd(
     GBinderWriter* writer,
     int fd); /* Since 1.0.18 */
 
-gsize
-gbinder_writer_bytes_written(
-    GBinderWriter* writer); /* since 1.0.21 */
-
 void
-gbinder_writer_overwrite_int32(
+gbinder_writer_append_fds(
     GBinderWriter* writer,
-    gsize offset,
-    gint32 value); /* since 1.0.21 */
+    const GBinderFds* fds,
+    const GBinderParent* parent); /* Since 1.1.14 */
 
 guint
 gbinder_writer_append_buffer_object_with_parent(
@@ -147,12 +143,17 @@ gbinder_writer_append_hidl_vec(
     GBinderWriter* writer,
     const void* base,
     guint count,
-    guint elemsize); /* since 1.0.8 */
+    guint elemsize); /* Since 1.0.8 */
 
 void
 gbinder_writer_append_hidl_string(
     GBinderWriter* writer,
     const char* str);
+
+void
+gbinder_writer_append_hidl_string_copy(
+    GBinderWriter* writer,
+    const char* str); /* Since 1.1.13 */
 
 void
 gbinder_writer_append_hidl_string_vec(
@@ -174,17 +175,39 @@ void
 gbinder_writer_append_byte_array(
     GBinderWriter* writer,
     const void* byte_array,
-    gint32 len); /* since 1.0.12 */
+    gint32 len); /* Since 1.0.12 */
+
+void
+gbinder_writer_append_fmq_descriptor(
+    GBinderWriter* writer,
+    const GBinderFmq* queue); /* since 1.1.14 */
+
+const void*
+gbinder_writer_get_data(
+    GBinderWriter* writer,
+    gsize* size); /* Since 1.1.14 */
+
+gsize
+gbinder_writer_bytes_written(
+    GBinderWriter* writer); /* Since 1.0.21 */
+
+void
+gbinder_writer_overwrite_int32(
+    GBinderWriter* writer,
+    gsize offset,
+    gint32 value); /* Since 1.0.21 */
+
+/* Note: memory allocated by GBinderWriter is owned by GBinderWriter */
 
 void*
 gbinder_writer_malloc(
     GBinderWriter* writer,
-    gsize size); /* since 1.0.19 */
+    gsize size); /* Since 1.0.19 */
 
 void*
 gbinder_writer_malloc0(
     GBinderWriter* writer,
-    gsize size); /* since 1.0.19 */
+    gsize size); /* Since 1.0.19 */
 
 #define gbinder_writer_new(writer,type) \
     ((type*) gbinder_writer_malloc(writer, sizeof(type)))
@@ -192,17 +215,22 @@ gbinder_writer_malloc0(
 #define gbinder_writer_new0(writer,type) \
     ((type*) gbinder_writer_malloc0(writer, sizeof(type)))
 
-void*
-gbinder_writer_memdup(
-    GBinderWriter* writer,
-    const void* buf,
-    gsize size); /* since 1.0.19 */
-
 void
 gbinder_writer_add_cleanup(
     GBinderWriter* writer,
     GDestroyNotify destroy,
-    gpointer data); /* since 1.0.19 */
+    gpointer data); /* Since 1.0.19 */
+
+void*
+gbinder_writer_memdup(
+    GBinderWriter* writer,
+    const void* buf,
+    gsize size); /* Since 1.0.19 */
+
+char*
+gbinder_writer_strdup(
+    GBinderWriter* writer,
+    const char* str); /* Since 1.1.13 */
 
 G_END_DECLS
 

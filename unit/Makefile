@@ -9,6 +9,7 @@ all:
 	@$(MAKE) -C unit_config $*
 	@$(MAKE) -C unit_driver $*
 	@$(MAKE) -C unit_eventloop $*
+	@$(MAKE) -C unit_fmq $*
 	@$(MAKE) -C unit_ipc $*
 	@$(MAKE) -C unit_local_object $*
 	@$(MAKE) -C unit_local_reply $*
@@ -23,6 +24,7 @@ all:
 	@$(MAKE) -C unit_servicemanager $*
 	@$(MAKE) -C unit_servicemanager_aidl $*
 	@$(MAKE) -C unit_servicemanager_aidl2 $*
+	@$(MAKE) -C unit_servicemanager_aidl3 $*
 	@$(MAKE) -C unit_servicemanager_hidl $*
 	@$(MAKE) -C unit_servicename $*
 	@$(MAKE) -C unit_servicepoll $*

@@ -1,6 +1,6 @@
 Name: libgbinder
 
-Version: 1.1.11
+Version: 1.1.14
 Release: 0
 Summary: Binder client library
 License: BSD
@@ -11,6 +11,14 @@ Source: %{name}-%{version}.tar.bz2
 
 BuildRequires: pkgconfig(glib-2.0)
 BuildRequires: pkgconfig(libglibutil) >= %{libglibutil_version}
+BuildRequires: pkgconfig
+BuildRequires: bison
+BuildRequires: flex
+
+# license macro requires rpm >= 4.11
+BuildRequires: pkgconfig(rpm)
+%define license_support %(pkg-config --exists 'rpm >= 4.11'; echo $?)
+
 Requires: libglibutil >= %{libglibutil_version}
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -21,7 +29,6 @@ C interfaces for Android binder
 %package devel
 Summary: Development library for %{name}
 Requires: %{name} = %{version}
-Requires: pkgconfig
 
 %description devel
 This package contains the development library for %{name}.
@@ -34,6 +41,7 @@ make %{_smp_mflags} LIBDIR=%{_libdir} KEEP_SYMBOLS=1 release pkgconfig
 make -C test/binder-bridge KEEP_SYMBOLS=1 release
 make -C test/binder-list KEEP_SYMBOLS=1 release
 make -C test/binder-ping KEEP_SYMBOLS=1 release
+make -C test/binder-call KEEP_SYMBOLS=1 release
 
 %install
 rm -rf %{buildroot}
@@ -41,6 +49,7 @@ make LIBDIR=%{_libdir} DESTDIR=%{buildroot} install-dev
 make -C test/binder-bridge DESTDIR=%{buildroot} install
 make -C test/binder-list DESTDIR=%{buildroot} install
 make -C test/binder-ping DESTDIR=%{buildroot} install
+make -C test/binder-call DESTDIR=%{buildroot} install
 
 %check
 make -C unit test
@@ -52,6 +61,9 @@ make -C unit test
 %files
 %defattr(-,root,root,-)
 %{_libdir}/%{name}.so.*
+%if %{license_support} == 0
+%license LICENSE
+%endif
 
 %files devel
 %defattr(-,root,root,-)
@@ -73,3 +85,4 @@ Binder command line utilities
 %{_bindir}/binder-bridge
 %{_bindir}/binder-list
 %{_bindir}/binder-ping
+%{_bindir}/binder-call

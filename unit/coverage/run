@@ -11,6 +11,7 @@ unit_client \
 unit_config \
 unit_driver \
 unit_eventloop \
+unit_fmq \
 unit_ipc \
 unit_local_object \
 unit_local_reply \
@@ -25,6 +26,7 @@ unit_remote_request \
 unit_servicemanager \
 unit_servicemanager_aidl \
 unit_servicemanager_aidl2 \
+unit_servicemanager_aidl3 \
 unit_servicemanager_hidl \
 unit_servicename \
 unit_servicepoll \

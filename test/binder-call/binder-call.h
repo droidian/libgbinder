@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2018-2021 Jolla Ltd.
- * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2021 Jolla Ltd.
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -30,32 +29,69 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GBINDER_H
-#define GBINDER_H
+#ifndef BINDER_CALL_H__
+#define BINDER_CALL_H__
 
-/* Convenience header to pull in everything at once */
+#include <gbinder.h>
 
-#include "gbinder_bridge.h"
-#include "gbinder_buffer.h"
-#include "gbinder_client.h"
-#include "gbinder_fmq.h"
-#include "gbinder_local_object.h"
-#include "gbinder_local_reply.h"
-#include "gbinder_local_request.h"
-#include "gbinder_reader.h"
-#include "gbinder_remote_object.h"
-#include "gbinder_remote_reply.h"
-#include "gbinder_remote_request.h"
-#include "gbinder_servicename.h"
-#include "gbinder_servicemanager.h"
-#include "gbinder_writer.h"
+typedef struct app_options {
+    char* dev;
+    char* iface;
+    gboolean oneway;
+    gboolean aidl;
+    gint transaction;
+    int argc;
+    char** argv;
+} AppOptions;
 
-#endif /* GBINDER_H */
+typedef struct app {
+    const AppOptions* opt;
+    GMainLoop* loop;
+    GBinderServiceManager* sm;
+    GBinderWriter writer;
+    GBinderReader reader;
+    int code;
+    int rargc;
+    int ret;
+} App;
 
-/*
- * Local Variables:
- * mode: C
- * c-basic-offset: 4
- * indent-tabs-mode: nil
- * End:
- */
+enum TYPE_INFO {
+    INT8_TYPE = 0,
+    INT32_TYPE,
+    INT64_TYPE,
+    FLOAT_TYPE,
+    DOUBLE_TYPE,
+    STRING8_TYPE,
+    STRING16_TYPE,
+    HSTRING_TYPE,
+    STRUCT_TYPE,
+    VECTOR_TYPE
+};
+
+struct type_info {
+    enum TYPE_INFO type;
+    void* data;
+};
+
+struct value_info {
+    enum TYPE_INFO type;
+    void* value;
+};
+
+struct transaction_and_reply {
+    GList* tree_transaction;
+    GList* tree_reply;
+};
+
+int
+cmdline_parse(
+    App* app);
+
+int
+cmdlinelex(
+    void* args);
+
+extern struct transaction_and_reply* ast;
+
+#endif
+
