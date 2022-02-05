@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2021 Jolla Ltd.
- * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2022 Jolla Ltd.
+ * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -206,9 +206,6 @@ typedef struct gbinder_ipc_tx_custom {
     GBinderIpcTxFunc fn_custom_done;
     GDestroyNotify fn_custom_destroy;
 } GBinderIpcTxCustom;
-
-GBINDER_INLINE_FUNC const char* gbinder_ipc_name(GBinderIpc* self)
-    { return self->priv->name; }
 
 static
 GBinderIpcLooper*
@@ -1117,6 +1114,23 @@ gbinder_ipc_tx_handler_transact(
 
 static
 void
+gbinder_ipc_invalidate_local_object_locked(
+    GBinderIpc* self,
+    GBinderLocalObject* obj)
+{
+    GBinderIpcPriv* priv = self->priv;
+
+    if (priv->local_objects && g_hash_table_remove(priv->local_objects, obj)) {
+        GVERBOSE_("%p %s", obj, gbinder_ipc_name(self));
+        if (g_hash_table_size(priv->local_objects) == 0) {
+            g_hash_table_unref(priv->local_objects);
+            priv->local_objects = NULL;
+        }
+    }
+}
+
+static
+void
 gbinder_ipc_invalidate_remote_handle_locked(
     GBinderIpc* self,
     guint32 handle)
@@ -1138,6 +1152,20 @@ gbinder_ipc_invalidate_remote_handle_locked(
             }
         }
     }
+}
+
+void
+gbinder_ipc_invalidate_local_object(
+    GBinderIpc* self,
+    GBinderLocalObject* obj)
+{
+    GBinderIpcPriv* priv = self->priv;
+
+    /* Lock */
+    g_mutex_lock(&priv->local_objects_mutex);
+    gbinder_ipc_invalidate_local_object_locked(self, obj);
+    g_mutex_unlock(&priv->local_objects_mutex);
+    /* Unlock */
 }
 
 void
@@ -1183,14 +1211,8 @@ gbinder_ipc_local_object_disposed(
 
     /* Lock */
     g_mutex_lock(&priv->local_objects_mutex);
-    if (obj->object.ref_count == 1 && priv->local_objects) {
-        if (g_hash_table_remove(priv->local_objects, obj)) {
-            GVERBOSE_("%p %s", obj, gbinder_ipc_name(self));
-            if (g_hash_table_size(priv->local_objects) == 0) {
-                g_hash_table_unref(priv->local_objects);
-                priv->local_objects = NULL;
-            }
-        }
+    if (g_atomic_int_get(&obj->object.ref_count) == 1) {
+        gbinder_ipc_invalidate_local_object_locked(self, obj);
     }
     g_mutex_unlock(&priv->local_objects_mutex);
     /* Unlock */
@@ -1203,9 +1225,32 @@ gbinder_ipc_remote_object_disposed(
 {
     GBinderIpcPriv* priv = self->priv;
 
+    /*
+     * Check of ref_count for 1 makes it possible (albeit quite unlikely)
+     * that GBinderRemoteObject still remains in remote_objects table
+     * when it's being finalized.
+     *
+     * For this to happen, other thread must re-reference GBinderRemoteObject
+     * right before we grab the lock here (making ref_count greater than 1)
+     * and then release that reference before g_object_unref() re-checks the
+     * refcount.
+     *
+     * That's why another gbinder_ipc_invalidate_remote_handle() call from
+     * gbinder_remote_object_finalize() is necessary to make sure that stale
+     * object pointer isn't stored in the hashtable.
+     *
+     * We still have to invalidate the handle here because it's the last
+     * point when GObject can be legitimately re-referenced and brought
+     * back to life. Which means that GBinderIpc mutex has to acquired
+     * twice during GBinderRemoteObject destruction.
+     *
+     * The same applies to GBinderLocalObject too, except that it calls
+     * gbinder_ipc_invalidate_local_object() from its finalize() handler.
+     */
+
     /* Lock */
     g_mutex_lock(&priv->remote_objects_mutex);
-    if (obj->object.ref_count == 1) {
+    if (g_atomic_int_get(&obj->object.ref_count) == 1) {
         gbinder_ipc_invalidate_remote_handle_locked(self, obj->handle);
     }
     g_mutex_unlock(&priv->remote_objects_mutex);
@@ -1250,10 +1295,10 @@ gbinder_ipc_priv_get_local_object(
             if (obj) {
                 gbinder_local_object_ref(obj);
             } else {
-                GWARN("Unknown local object %p", pointer);
+                GWARN("Unknown local object %p %s", pointer, priv->name);
             }
         } else {
-            GWARN("Unknown local object %p", pointer);
+            GWARN("Unknown local object %p %s", pointer, priv->name);
         }
         g_mutex_unlock(&priv->local_objects_mutex);
         /* Unlock */
@@ -1297,6 +1342,8 @@ gbinder_ipc_priv_get_remote_object(
         }
         GVERBOSE_("%p handle %u %s", obj, handle, gbinder_ipc_name(self));
         g_hash_table_replace(priv->remote_objects, key, obj);
+    } else {
+        GWARN("Unknown handle %u %s", handle, priv->name);
     }
     g_mutex_unlock(&priv->remote_objects_mutex);
     /* Unlock */
@@ -1854,6 +1901,13 @@ gbinder_ipc_unref(
     if (G_LIKELY(self)) {
         g_object_unref(GBINDER_IPC(self));
     }
+}
+
+const char*
+gbinder_ipc_name(
+    GBinderIpc* self)
+{
+    return G_LIKELY(self) ? self->priv->name : NULL;
 }
 
 GBinderObjectRegistry*
