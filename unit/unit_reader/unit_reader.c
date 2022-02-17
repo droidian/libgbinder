@@ -119,7 +119,7 @@ test_empty(
     g_assert(!gbinder_reader_read_object(&reader));
     g_assert(!gbinder_reader_read_nullable_object(&reader, NULL));
     g_assert(!gbinder_reader_read_buffer(&reader));
-    g_assert(!gbinder_reader_read_parcelable(&reader));
+    g_assert(!gbinder_reader_read_parcelable(&reader, NULL));
     g_assert(!gbinder_reader_read_hidl_struct1(&reader, 1));
     g_assert(!gbinder_reader_read_hidl_vec(&reader, NULL, NULL));
     g_assert(!gbinder_reader_read_hidl_vec(&reader, &count, &elemsize));
@@ -1715,7 +1715,7 @@ test_parcelable(
         TEST_INT32_BYTES(20)
     };
     gpointer in;
-    gsize in_size;
+    gsize in_size, out_size;
     const void* out = 0;
     GBinderDriver* driver = gbinder_driver_new(GBINDER_DEFAULT_BINDER, NULL);
     GBinderReader reader;
@@ -1728,8 +1728,9 @@ test_parcelable(
     data.buffer = gbinder_buffer_new(driver, g_memdup(&input_null_header,
         sizeof(input_null_header)), sizeof(input_null_header), NULL);
     gbinder_reader_init(&reader, &data, 0, sizeof(input_null_header));
-    out = gbinder_reader_read_parcelable(&reader);
+    out = gbinder_reader_read_parcelable(&reader, &out_size);
     g_assert(out == NULL);
+    g_assert(out_size == 0);
     g_assert(gbinder_reader_at_end(&reader));
 
     /* Non-null */
@@ -1741,8 +1742,9 @@ test_parcelable(
     data.buffer = gbinder_buffer_new(driver, in, in_size, NULL);
 
     gbinder_reader_init(&reader, &data, 0, in_size);
-    out = gbinder_reader_read_parcelable(&reader);
+    out = gbinder_reader_read_parcelable(&reader, &out_size);
     g_assert(memcmp(&input_non_null_payload, out, sizeof(input_non_null_payload)) == 0);
+    g_assert(out_size == sizeof(input_non_null_payload));
     g_assert(gbinder_reader_at_end(&reader));
 
     gbinder_buffer_free(data.buffer);

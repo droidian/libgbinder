@@ -422,25 +422,27 @@ gbinder_reader_skip_buffer(
 
 const void*
 gbinder_reader_read_parcelable(
-    GBinderReader* reader) /* Since 1.1.XX */
+    GBinderReader* reader,
+    gsize* size) /* Since 1.1.XX */
 {
     GBinderReaderPriv* p = gbinder_reader_cast(reader);
-    gint32 non_null, size;
-    const void* out;
+    gint32 non_null, payload_size = 0;
+    const void* out = NULL;
 
     if (gbinder_reader_read_int32(reader, &non_null) && non_null
-        && gbinder_reader_read_int32(reader, &size)) {
+        && gbinder_reader_read_int32(reader, &payload_size)) {
         /* We have already read the size integer, and we don't need it anymore */
-        size -= sizeof(gint32);
+        payload_size -= sizeof(gint32);
 
-        if (p->ptr + size <= p->end) {
+        if (p->ptr + payload_size <= p->end) {
             out = p->ptr;
-            p->ptr += size;
-
-            return out;
+            p->ptr += payload_size;
         }
     }
-    return NULL;
+    if (size) {
+        *size = payload_size;
+    }
+    return out;
 }
 
 /* Helper for gbinder_reader_read_hidl_struct() macro */

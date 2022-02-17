@@ -144,7 +144,8 @@ gbinder_reader_read_buffer(
 
 const void*
 gbinder_reader_read_parcelable(
-    GBinderReader* reader); /* Since 1.1.XX */
+    GBinderReader* reader,
+    gsize* size); /* Since 1.1.XX */
 
 const void*
 gbinder_reader_read_hidl_struct1(
