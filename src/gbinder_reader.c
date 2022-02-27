@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2021 Jolla Ltd.
- * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2022 Jolla Ltd.
+ * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -418,6 +418,40 @@ gbinder_reader_skip_buffer(
     GBinderReader* reader)
 {
     return gbinder_reader_read_buffer_object(reader, NULL);
+}
+
+/*
+ * This is supposed to be used to read aidl parcelables, and is not
+ * guaranteed to work on any other kind of parcelable.
+ */
+const void*
+gbinder_reader_read_parcelable(
+    GBinderReader* reader,
+    gsize* size) /* Since 1.1.19 */
+{
+    guint32 non_null, payload_size = 0;
+
+    if (gbinder_reader_read_uint32(reader, &non_null) && non_null &&
+        gbinder_reader_read_uint32(reader, &payload_size) &&
+        payload_size >= sizeof(payload_size)) {
+        GBinderReaderPriv* p = gbinder_reader_cast(reader);
+
+        payload_size -= sizeof(payload_size);
+        if (p->ptr + payload_size <= p->end) {
+            const void* out = p->ptr;
+
+            /* Success */
+            p->ptr += payload_size;
+            if (size) {
+                *size = payload_size;
+            }
+            return out;
+        }
+    }
+    if (size) {
+        *size = 0;
+    }
+    return NULL;
 }
 
 /* Helper for gbinder_reader_read_hidl_struct() macro */

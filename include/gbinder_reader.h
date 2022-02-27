@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2021 Jolla Ltd.
- * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2022 Jolla Ltd.
+ * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -141,6 +141,11 @@ GBinderBuffer*
 gbinder_reader_read_buffer(
     GBinderReader* reader)
     G_GNUC_WARN_UNUSED_RESULT;
+
+const void*
+gbinder_reader_read_parcelable(
+    GBinderReader* reader,
+    gsize* size); /* Since 1.1.19 */
 
 const void*
 gbinder_reader_read_hidl_struct1(
