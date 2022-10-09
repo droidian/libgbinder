@@ -13,3 +13,6 @@ documentation.list
 installroot
 build
 RPMS
+
+# Added by Droidian
+!.circleci/
