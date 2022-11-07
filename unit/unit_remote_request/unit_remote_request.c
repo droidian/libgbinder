@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2021 Jolla Ltd.
- * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2022 Jolla Ltd.
+ * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -31,8 +31,10 @@
  */
 
 #include "test_common.h"
+#include "test_binder.h"
 
 #include "gbinder_buffer_p.h"
+#include "gbinder_config.h"
 #include "gbinder_driver.h"
 #include "gbinder_reader.h"
 #include "gbinder_remote_request_p.h"
@@ -57,9 +59,6 @@ static TestOpt test_opt;
     TEST_INT16_BYTES('o'), 0x00, 0x00
 #define HIDL_RPC_HEADER \
     'f', 'o', 'o', 0x00
-
-#define BINDER_TYPE_BINDER GBINDER_FOURCC('s', 'b', '*', 0x85)
-#define BINDER_OBJECT_SIZE_64 (GBINDER_MAX_BINDER_OBJECT_SIZE)
 
 /*==========================================================================*
  * null
@@ -369,6 +368,18 @@ test_to_local(
 
 int main(int argc, char* argv[])
 {
+    const char* default_config_dir;
+    const char* default_config_file;
+    char* conf_dir = g_dir_make_tmp("gbinder-test-remote-request-XXXXXX", NULL);
+    char* conf_file = g_build_filename(conf_dir, "test.conf", NULL);
+    int result;
+
+    /* Point gbinder_config_file to a non-existent file */
+    default_config_dir = gbinder_config_dir;
+    default_config_file = gbinder_config_file;
+    gbinder_config_dir = conf_dir;
+    gbinder_config_file = conf_file;
+
     g_test_init(&argc, &argv, NULL);
     g_test_add_func(TEST_PREFIX "null", test_null);
     g_test_add_func(TEST_PREFIX "basic", test_basic);
@@ -378,7 +389,14 @@ int main(int argc, char* argv[])
     g_test_add_func(TEST_PREFIX "string16", test_string16);
     g_test_add_func(TEST_PREFIX "to_local", test_to_local);
     test_init(&test_opt, argc, argv);
-    return g_test_run();
+    result = g_test_run();
+
+    gbinder_config_dir = default_config_dir;
+    gbinder_config_file = default_config_file;
+    remove(conf_dir);
+    g_free(conf_dir);
+    g_free(conf_file);
+    return result;
 }
 
 /*

@@ -1,6 +1,8 @@
 /*
- * Copyright (C) 2020 Jolla Ltd.
- * Copyright (C) 2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2020-2022 Jolla Ltd.
+ * Copyright (C) 2020-2022 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2021 Gary Wang <gary.wang@canonical.com>
+ * Copyright (C) 2021 Madhushan Nishantha <jlmadushan@gmail.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -30,38 +32,29 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "gbinder_servicemanager_aidl.h"
+#include "gbinder_servicemanager_aidl_p.h"
+#include "gbinder_client_p.h"
+#include "gbinder_reader_p.h"
 
-#include <gbinder_client.h>
 #include <gbinder_local_request.h>
+#include <gbinder_remote_reply.h>
 
-/* Variant of AIDL servicemanager appeared in Android 9 (API level 28) */
+/* Variant of AIDL servicemanager appeared in Android 12 (API level 31) */
 
-typedef GBinderServiceManagerAidl GBinderServiceManagerAidl2;
-typedef GBinderServiceManagerAidlClass GBinderServiceManagerAidl2Class;
+typedef GBinderServiceManagerAidl GBinderServiceManagerAidl4;
+typedef GBinderServiceManagerAidlClass GBinderServiceManagerAidl4Class;
 
-G_DEFINE_TYPE(GBinderServiceManagerAidl2,
-    gbinder_servicemanager_aidl2,
+G_DEFINE_TYPE(GBinderServiceManagerAidl4,
+    gbinder_servicemanager_aidl4,
     GBINDER_TYPE_SERVICEMANAGER_AIDL)
 
-#define PARENT_CLASS gbinder_servicemanager_aidl2_parent_class
+#define PARENT_CLASS gbinder_servicemanager_aidl4_parent_class
+
+#define BINDER_WIRE_FORMAT_VERSION (1)
 
 static
 GBinderLocalRequest*
-gbinder_servicemanager_aidl2_list_services_req(
-    GBinderClient* client,
-    gint32 index)
-{
-    GBinderLocalRequest* req = gbinder_client_new_request(client);
-
-    gbinder_local_request_append_int32(req, index);
-    gbinder_local_request_append_int32(req, DUMP_FLAG_PRIORITY_ALL);
-    return req;
-}
-
-static
-GBinderLocalRequest*
-gbinder_servicemanager_aidl2_add_service_req(
+gbinder_servicemanager_aidl4_add_service_req(
     GBinderClient* client,
     const char* name,
     GBinderLocalObject* obj)
@@ -70,25 +63,46 @@ gbinder_servicemanager_aidl2_add_service_req(
 
     gbinder_local_request_append_string16(req, name);
     gbinder_local_request_append_local_object(req, obj);
+
+    /*
+     * When reading nullable strong binder, from Android 12, the format of
+     * the `stability` field passed on the wire was changed and evolved to
+     * `struct Category`, which consists of the following members with 4 bytes
+     * long.
+     *
+     * struct Category {
+     *   uint8_t version;
+     *   uint8_t reserved[2];
+     *   Level level;        <- bitmask of Stability::Level
+     * }
+     *
+     * Hmmm, is that ^ really true?
+     */
+    gbinder_local_request_append_int32(req,
+        GBINDER_FOURCC(GBINDER_STABILITY_SYSTEM, 0, 0,
+            BINDER_WIRE_FORMAT_VERSION));
     gbinder_local_request_append_int32(req, 0);
     gbinder_local_request_append_int32(req, DUMP_FLAG_PRIORITY_DEFAULT);
+
     return req;
 }
 
 static
 void
-gbinder_servicemanager_aidl2_init(
+gbinder_servicemanager_aidl4_init(
     GBinderServiceManagerAidl* self)
 {
 }
 
 static
 void
-gbinder_servicemanager_aidl2_class_init(
-    GBinderServiceManagerAidl2Class* cls)
+gbinder_servicemanager_aidl4_class_init(
+    GBinderServiceManagerAidl4Class* cls)
 {
-    cls->list_services_req = gbinder_servicemanager_aidl2_list_services_req;
-    cls->add_service_req = gbinder_servicemanager_aidl2_add_service_req;
+    GBinderServiceManagerClass* manager = GBINDER_SERVICEMANAGER_CLASS(cls);
+    cls->add_service_req = gbinder_servicemanager_aidl4_add_service_req;
+    manager->list = gbinder_servicemanager_aidl3_list;
+    manager->get_service = gbinder_servicemanager_aidl3_get_service;
 }
 
 /*
@@ -98,3 +112,4 @@ gbinder_servicemanager_aidl2_class_init(
  * indent-tabs-mode: nil
  * End:
  */
+

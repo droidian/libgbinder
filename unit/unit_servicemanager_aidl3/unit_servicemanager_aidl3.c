@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2020-2021 Jolla Ltd.
- * Copyright (C) 2020-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2020-2022 Jolla Ltd.
+ * Copyright (C) 2020-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -50,13 +50,6 @@
 static TestOpt test_opt;
 static const char TMP_DIR_TEMPLATE[] =
     "gbinder-test-servicemanager_aidl3-XXXXXX";
-
-enum gbinder_stability_level {
-    UNDECLARED = 0,
-    VENDOR = 0b000011,
-    SYSTEM = 0b001100,
-    VINTF = 0b111111
-};
 
 GType
 gbinder_servicemanager_hidl_get_type()
@@ -109,7 +102,6 @@ servicemanager_aidl3_handler(
     GBinderReader reader;
     GBinderRemoteObject* remote_obj;
     guint32 allow_isolated, dumpsys_priority;
-    gint32 stability;
     char* str;
 
     g_assert(!flags);
@@ -122,18 +114,18 @@ servicemanager_aidl3_handler(
         gbinder_remote_request_init_reader(req, &reader);
         str = gbinder_reader_read_string16(&reader);
         if (str) {
-            reply = gbinder_local_object_new_reply(obj);
-            remote_obj = g_hash_table_lookup(self->objects, str);
-            if (remote_obj) {
-                GBinderWriter writer;
+            GBinderWriter writer;
 
+            remote_obj = g_hash_table_lookup(self->objects, str);
+            reply = gbinder_local_object_new_reply(obj);
+
+            gbinder_local_reply_init_writer(reply, &writer);
+            gbinder_writer_append_int32(&writer, GBINDER_STATUS_OK);
+            gbinder_writer_append_remote_object(&writer, remote_obj);
+            if (remote_obj) {
                 GDEBUG("Found name '%s' => %p", str, remote_obj);
-                gbinder_local_reply_init_writer(reply, &writer);
-                gbinder_writer_append_int32(&writer, UNDECLARED);
-                gbinder_writer_append_remote_object(&writer, remote_obj);
             } else {
                 GDEBUG("Name '%s' not found", str);
-                gbinder_local_reply_append_int32(reply, GBINDER_STATUS_OK);
             }
             g_free(str);
         }
@@ -142,8 +134,7 @@ servicemanager_aidl3_handler(
         gbinder_remote_request_init_reader(req, &reader);
         str = gbinder_reader_read_string16(&reader);
         remote_obj = gbinder_reader_read_object(&reader);
-        gbinder_reader_read_int32(&reader, &stability);
-        if (str && remote_obj && stability == 0b001100 &&
+        if (str && remote_obj &&
             gbinder_reader_read_uint32(&reader, &allow_isolated) &&
             gbinder_reader_read_uint32(&reader, &dumpsys_priority)) {
             GDEBUG("Adding '%s'", str);
@@ -193,7 +184,7 @@ servicemanager_aidl3_new(
 {
     ServiceManagerAidl3* self = g_object_new(SERVICE_MANAGER_AIDL3_TYPE, NULL);
     GBinderLocalObject* obj = GBINDER_LOCAL_OBJECT(self);
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     const int fd = gbinder_driver_fd(ipc->driver);
 
     self->handle_on_looper_thread = handle_on_looper_thread;
@@ -323,7 +314,7 @@ test_context_init(
     gbinder_config_dir = test->config_subdir; /* Doesn't exist */
     gbinder_config_file = test->config_file;
 
-    ipc = gbinder_ipc_new(dev);
+    ipc = gbinder_ipc_new(dev, NULL);
     test->fd = gbinder_driver_fd(ipc->driver);
     test->object = gbinder_local_object_new(ipc, NULL, NULL, NULL);
 

@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2018-2022 Jolla Ltd.
- * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2021 Jolla Ltd.
+ * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2021 Gary Wang <gary.wang@canonical.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -30,86 +31,26 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GBINDER_BUFFER_PRIVATE_H
-#define GBINDER_BUFFER_PRIVATE_H
+#ifndef GBINDER_SERVICEMANAGER_AIDL_PRIVATE_H
+#define GBINDER_SERVICEMANAGER_AIDL_PRIVATE_H
 
-#include <gbinder_buffer.h>
+#include "gbinder_servicemanager_aidl.h"
 
-#include "gbinder_types_p.h"
-
-GBinderBuffer*
-gbinder_buffer_new(
-    GBinderDriver* driver,
-    void* data,
-    gsize size,
-    void** objects)
+char**
+gbinder_servicemanager_aidl3_list(
+    GBinderServiceManager* manager,
+    const GBinderIpcSyncApi* api)
     GBINDER_INTERNAL;
 
-GBinderBuffer*
-gbinder_buffer_new_with_parent(
-    GBinderBuffer* parent,
-    void* data,
-    gsize size)
+GBinderRemoteObject*
+gbinder_servicemanager_aidl3_get_service(
+    GBinderServiceManager* manager,
+    const char* name,
+    int* status,
+    const GBinderIpcSyncApi* api)
     GBINDER_INTERNAL;
 
-GBinderDriver*
-gbinder_buffer_driver(
-    GBinderBuffer* buf)
-    GBINDER_INTERNAL;
-
-GBinderBufferContents*
-gbinder_buffer_contents(
-    GBinderBuffer* buf)
-    GBINDER_INTERNAL;
-
-gconstpointer
-gbinder_buffer_data(
-    GBinderBuffer* buf,
-    gsize* size)
-    GBINDER_INTERNAL;
-
-const GBinderIo*
-gbinder_buffer_io(
-    GBinderBuffer* buf)
-    GBINDER_INTERNAL;
-
-const GBinderRpcProtocol*
-gbinder_buffer_protocol(
-    GBinderBuffer* buf)
-    GBINDER_INTERNAL;
-
-void**
-gbinder_buffer_objects(
-    GBinderBuffer* buffer)
-    GBINDER_INTERNAL;
-
-GBinderBufferContents*
-gbinder_buffer_contents_ref(
-    GBinderBufferContents* contents)
-    GBINDER_INTERNAL;
-
-void
-gbinder_buffer_contents_unref(
-    GBinderBufferContents* contents)
-    GBINDER_INTERNAL;
-
-GBinderBufferContentsList*
-gbinder_buffer_contents_list_add(
-    GBinderBufferContentsList* list,
-    GBinderBufferContents* contents)
-    GBINDER_INTERNAL;
-
-GBinderBufferContentsList*
-gbinder_buffer_contents_list_dup(
-    GBinderBufferContentsList* list)
-    GBINDER_INTERNAL;
-
-void
-gbinder_buffer_contents_list_free(
-    GBinderBufferContentsList* list)
-    GBINDER_INTERNAL;
-
-#endif /* GBINDER_BUFFER_PRIVATE_H */
+#endif /* GBINDER_SERVICEMANAGER_AIDL_PRIVATE_H */
 
 /*
  * Local Variables:

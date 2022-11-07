@@ -14,7 +14,7 @@ Description: Binder client library
 Package: libgbinder-dev
 Section: libdevel
 Architecture: any
-Depends: libgbinder (= ${binary:Version}), ${misc:Depends}
+Depends: libgbinder (= ${binary:Version}), libglibutil-dev (>= 1.0.52)
 Description: Development files for libgbinder
 
 Package: libgbinder-tools

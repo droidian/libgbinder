@@ -90,7 +90,8 @@ GType gbinder_servicemanager_get_type(void) GBINDER_INTERNAL;
 GBinderServiceManager*
 gbinder_servicemanager_new_with_type(
     GType type,
-    const char* dev)
+    const char* dev,
+    const char* rpc_protocol)
     GBINDER_INTERNAL;
 
 void
@@ -111,6 +112,7 @@ gbinder_servicemanager_exit(
 GType gbinder_servicemanager_aidl_get_type(void) GBINDER_INTERNAL;
 GType gbinder_servicemanager_aidl2_get_type(void) GBINDER_INTERNAL;
 GType gbinder_servicemanager_aidl3_get_type(void) GBINDER_INTERNAL;
+GType gbinder_servicemanager_aidl4_get_type(void) GBINDER_INTERNAL;
 GType gbinder_servicemanager_hidl_get_type(void) GBINDER_INTERNAL;
 
 #endif /* GBINDER_SERVICEMANAGER_PRIVATE_H */

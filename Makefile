@@ -16,7 +16,7 @@
 
 VERSION_MAJOR = 1
 VERSION_MINOR = 1
-VERSION_RELEASE = 19
+VERSION_RELEASE = 26
 
 # Version for pkg-config
 PCVERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_RELEASE)
@@ -105,6 +105,7 @@ SRC += \
   gbinder_servicemanager_aidl.c \
   gbinder_servicemanager_aidl2.c \
   gbinder_servicemanager_aidl3.c \
+  gbinder_servicemanager_aidl4.c \
   gbinder_servicemanager_hidl.c
 
 SRC += \

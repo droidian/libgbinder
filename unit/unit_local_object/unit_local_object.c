@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2021 Jolla Ltd.
- * Copyright (C) 2018-2021 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2022 Jolla Ltd.
+ * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -33,6 +33,7 @@
 #include "test_binder.h"
 
 #include "gbinder_buffer_p.h"
+#include "gbinder_config.h"
 #include "gbinder_driver.h"
 #include "gbinder_ipc.h"
 #include "gbinder_local_object_p.h"
@@ -152,7 +153,7 @@ test_basic(
 {
     const char* const ifaces_foo[] = { "foo", NULL };
     const char* const ifaces_bar[] = { "bar", NULL };
-    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
+    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderLocalObject* foo;
     GBinderLocalObject* bar;
@@ -201,7 +202,7 @@ test_ping(
     int status = INT_MAX;
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     const GBinderRpcProtocol* prot = gbinder_rpc_protocol_for_device(dev);
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderRemoteRequest* req = gbinder_remote_request_new(reg, prot, 0, 0);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, NULL, NULL, NULL);
@@ -247,7 +248,7 @@ test_interface(
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     const GBinderRpcProtocol* prot = gbinder_rpc_protocol_for_device(dev);
     const char* const ifaces[] = { "x", NULL };
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderRemoteRequest* req = gbinder_remote_request_new(reg, prot, 0, 0);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, ifaces, NULL, NULL);
@@ -296,7 +297,7 @@ test_hidl_ping(
     int status = INT_MAX;
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     const GBinderRpcProtocol* prot = gbinder_rpc_protocol_for_device(dev);
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderRemoteRequest* req = gbinder_remote_request_new(reg, prot, 0, 0);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, NULL, NULL, NULL);
@@ -346,7 +347,7 @@ test_get_descriptor(
     int status = INT_MAX;
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     const GBinderRpcProtocol* prot = gbinder_rpc_protocol_for_device(dev);
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderRemoteRequest* req = gbinder_remote_request_new(reg, prot, 0, 0);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, NULL, NULL, NULL);
@@ -402,7 +403,7 @@ test_descriptor_chain(
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     const char* const ifaces[] = { "android.hidl.base@1.0::IBase", NULL };
     const GBinderRpcProtocol* prot = gbinder_rpc_protocol_for_device(dev);
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderRemoteRequest* req = gbinder_remote_request_new(reg, prot, 0, 0);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, ifaces, NULL, NULL);
@@ -476,7 +477,7 @@ test_custom_iface(
     int count = 0, status = INT_MAX;
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     const GBinderRpcProtocol* prot = gbinder_rpc_protocol_for_device(dev);
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderRemoteRequest* req = gbinder_remote_request_new(reg, prot, 0, 0);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, ifaces,
@@ -583,7 +584,7 @@ test_reply_status(
     int count = 0, status = 0;
     const char* dev = GBINDER_DEFAULT_HWBINDER;
     const GBinderRpcProtocol* prot = gbinder_rpc_protocol_for_device(dev);
-    GBinderIpc* ipc = gbinder_ipc_new(dev);
+    GBinderIpc* ipc = gbinder_ipc_new(dev, NULL);
     GBinderObjectRegistry* reg = gbinder_ipc_object_registry(ipc);
     GBinderRemoteRequest* req = gbinder_remote_request_new(reg, prot, 0, 0);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, ifaces,
@@ -624,7 +625,7 @@ void
 test_increfs_run(
     void)
 {
-    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
+    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER, NULL);
     GBinderLocalObject* obj = gbinder_local_object_new
         (ipc, NULL, NULL, NULL);
     GMainLoop* loop = g_main_loop_new(NULL, FALSE);
@@ -675,7 +676,7 @@ void
 test_decrefs_run(
     void)
 {
-    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
+    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER, NULL);
     GBinderLocalObject* obj = gbinder_local_object_new
         (ipc, NULL, NULL, NULL);
     GMainLoop* loop = g_main_loop_new(NULL, FALSE);
@@ -726,7 +727,7 @@ void
 test_acquire_run(
     void)
 {
-    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
+    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER, NULL);
     GBinderLocalObject* obj = gbinder_local_object_new
         (ipc, NULL, NULL, NULL);
     GMainLoop* loop = g_main_loop_new(NULL, FALSE);
@@ -777,7 +778,7 @@ void
 test_release_run(
     void)
 {
-    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER);
+    GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_BINDER, NULL);
     GBinderLocalObject* obj = gbinder_local_object_new(ipc, NULL, NULL, NULL);
     GMainLoop* loop = g_main_loop_new(NULL, FALSE);
     int fd = gbinder_driver_fd(ipc->driver);
@@ -815,6 +816,18 @@ test_release(
 
 int main(int argc, char* argv[])
 {
+    const char* default_config_dir;
+    const char* default_config_file;
+    char* config_dir = g_dir_make_tmp("gbinder-test-local-object-XXXXXX", NULL);
+    char* config_file = g_build_filename(config_dir, "test.conf", NULL);
+    int result;
+
+    /* Point gbinder_config_file to a non-existent file */
+    default_config_dir = gbinder_config_dir;
+    default_config_file = gbinder_config_file;
+    gbinder_config_dir = config_dir;
+    gbinder_config_file = config_file;
+
     G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
     g_type_init();
     G_GNUC_END_IGNORE_DEPRECATIONS;
@@ -833,7 +846,14 @@ int main(int argc, char* argv[])
     g_test_add_func(TEST_PREFIX "acquire", test_acquire);
     g_test_add_func(TEST_PREFIX "release", test_release);
     test_init(&test_opt, argc, argv);
-    return g_test_run();
+    result = g_test_run();
+
+    gbinder_config_dir = default_config_dir;
+    gbinder_config_file = default_config_file;
+    remove(config_dir);
+    g_free(config_dir);
+    g_free(config_file);
+    return result;
 }
 
 /*

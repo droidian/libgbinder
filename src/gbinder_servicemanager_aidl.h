@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2020 Jolla Ltd.
- * Copyright (C) 2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2020-2022 Jolla Ltd.
+ * Copyright (C) 2020-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -51,10 +51,6 @@ typedef struct gbinder_servicemanager_aidl_class {
 
 #define GBINDER_TYPE_SERVICEMANAGER_AIDL \
     gbinder_servicemanager_aidl_get_type()
-#define GBINDER_SERVICEMANAGER_AIDL_CLASS(klass) \
-    G_TYPE_CHECK_CLASS_CAST((klass), GBINDER_TYPE_SERVICEMANAGER_AIDL, \
-    GBinderServiceManagerAidlClass)
-
 #define GBINDER_SERVICEMANAGER_AIDL_GET_CLASS(obj) \
     G_TYPE_INSTANCE_GET_CLASS((obj), GBINDER_TYPE_SERVICEMANAGER_AIDL, \
     GBinderServiceManagerAidlClass)

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2020 Jolla Ltd.
- * Copyright (C) 2018-2020 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2018-2022 Jolla Ltd.
+ * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -184,6 +184,9 @@ test_device(
     void)
 {
     const GBinderRpcProtocol* p;
+    TestConfig config;
+
+    test_config_init(&config, "");
 
     p = gbinder_rpc_protocol_for_device(NULL);
     g_assert(p);
@@ -196,6 +199,8 @@ test_device(
     p = gbinder_rpc_protocol_for_device(GBINDER_DEFAULT_HWBINDER);
     g_assert(p);
     g_assert_cmpstr(p->name, == ,"hidl");
+
+    test_config_cleanup(&config);
 }
 
 /*==========================================================================*
@@ -388,7 +393,8 @@ test_write_header(
     test_config_init2(&config, test->dev, test->prot);
 
     prot = gbinder_rpc_protocol_for_device(test->dev);
-    req = gbinder_local_request_new(&gbinder_io_32, NULL);
+    req = gbinder_local_request_new(&gbinder_io_32,
+        gbinder_rpc_protocol_for_device(NULL), NULL);
     gbinder_local_request_init_writer(req, &writer);
     prot->write_rpc_header(&writer, test->iface);
     data = gbinder_local_request_data(req);
