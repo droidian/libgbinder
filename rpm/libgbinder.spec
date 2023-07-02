@@ -40,6 +40,7 @@ This package contains the development library for %{name}.
 make %{_smp_mflags} LIBDIR=%{_libdir} KEEP_SYMBOLS=1 release pkgconfig
 make -C test/binder-bridge KEEP_SYMBOLS=1 release
 make -C test/binder-list KEEP_SYMBOLS=1 release
+make -C test/binder-wait KEEP_SYMBOLS=1 release
 make -C test/binder-ping KEEP_SYMBOLS=1 release
 make -C test/binder-call KEEP_SYMBOLS=1 release
 
@@ -48,6 +49,7 @@ rm -rf %{buildroot}
 make LIBDIR=%{_libdir} DESTDIR=%{buildroot} install-dev
 make -C test/binder-bridge DESTDIR=%{buildroot} install
 make -C test/binder-list DESTDIR=%{buildroot} install
+make -C test/binder-wait DESTDIR=%{buildroot} install
 make -C test/binder-ping DESTDIR=%{buildroot} install
 make -C test/binder-call DESTDIR=%{buildroot} install
 
@@ -84,5 +86,6 @@ Binder command line utilities
 %defattr(-,root,root,-)
 %{_bindir}/binder-bridge
 %{_bindir}/binder-list
+%{_bindir}/binder-wait
 %{_bindir}/binder-ping
 %{_bindir}/binder-call

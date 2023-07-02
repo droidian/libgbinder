@@ -11,6 +11,7 @@ override_dh_auto_build:
 	dh_auto_build -- -C test/binder-bridge release
 	dh_auto_build -- -C test/binder-call release
 	dh_auto_build -- -C test/binder-list release
+	dh_auto_build -- -C test/binder-wait release
 	dh_auto_build -- -C test/binder-ping release
 
 override_dh_auto_install:
@@ -18,6 +19,7 @@ override_dh_auto_install:
 	dh_auto_install -- -C test/binder-bridge
 	dh_auto_install -- -C test/binder-call
 	dh_auto_install -- -C test/binder-list
+	dh_auto_install -- -C test/binder-wait
 	dh_auto_install -- -C test/binder-ping
 
 %:

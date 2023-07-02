@@ -6,6 +6,7 @@ all:
 	@$(MAKE) -C binder-client $*
 	@$(MAKE) -C binder-dump $*
 	@$(MAKE) -C binder-list $*
+	@$(MAKE) -C binder-wait $*
 	@$(MAKE) -C binder-ping $*
 	@$(MAKE) -C binder-service $*
 	@$(MAKE) -C binder-call $*
