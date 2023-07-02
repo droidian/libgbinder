@@ -247,6 +247,54 @@ gbinder_servicemanager_hidl_add_service(
 }
 
 static
+guint8
+gbinder_servicemanager_hidl_get_service_transport(
+    GBinderServiceManager* self,
+    const char* fqinstance,
+    int* status,
+    const GBinderIpcSyncApi* api)
+{
+    /* e.g. "android.hardware.radio@1.1::IRadio/slot1" */
+    const char* sep = strchr(fqinstance, '/');
+    guint8 transport = NULL;
+
+    if (sep) {
+        GBinderRemoteReply* reply;
+        GBinderLocalRequest* req = gbinder_client_new_request(self->client);
+        char* fqname = g_strndup(fqinstance, sep - fqinstance);
+        const char* name = sep + 1;
+
+        gbinder_local_request_append_hidl_string(req, fqname);
+        gbinder_local_request_append_hidl_string(req, name);
+
+        reply = gbinder_client_transact_sync_reply2(self->client,
+            GET_TRANSPORT_TRANSACTION, req, status, api);
+
+        if (reply) {
+            GBinderReader reader;
+            int status = -1;
+
+            gbinder_remote_reply_init_reader(reply, &reader);
+
+            /* Read status */
+            GVERIFY(gbinder_reader_read_int32(&reader, &status));
+            GASSERT(status == GBINDER_STATUS_OK);
+
+            /* Read the transport */
+            GVERIFY(gbinder_reader_read_uint8(&reader, &transport));
+            gbinder_remote_reply_unref(reply);
+        }
+
+        gbinder_local_request_unref(req);
+        g_free(fqname);
+    } else {
+        GERR("Invalid instance \"%s\"", fqinstance);
+        if (status) *status = (-EINVAL);
+    }
+    return transport;
+}
+
+static
 void
 gbinder_servicemanager_hidl_watch_free(
     gpointer data)
@@ -377,6 +425,7 @@ gbinder_servicemanager_hidl_class_init(
     klass->list = gbinder_servicemanager_hidl_list;
     klass->get_service = gbinder_servicemanager_hidl_get_service;
     klass->add_service = gbinder_servicemanager_hidl_add_service;
+    klass->get_service_transport = gbinder_servicemanager_hidl_get_service_transport;
     klass->check_name = gbinder_servicemanager_hidl_check_name;
     klass->normalize_name = gbinder_servicemanager_hidl_normalize_name;
     klass->watch = gbinder_servicemanager_hidl_watch;

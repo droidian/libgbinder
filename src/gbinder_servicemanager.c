@@ -908,6 +908,20 @@ gbinder_servicemanager_add_service_sync(
     }
 }
 
+guint8
+gbinder_servicemanager_get_service_transport_sync(
+    GBinderServiceManager* self,
+    const char* name,
+    int* status)
+{
+    if (G_LIKELY(self) && name) {
+        return GBINDER_SERVICEMANAGER_GET_CLASS(self)->
+            get_service_transport(self, name, status, &gbinder_ipc_sync_main);
+    } else {
+        return (-EINVAL);
+    }
+}
+
 void
 gbinder_servicemanager_cancel(
     GBinderServiceManager* self,

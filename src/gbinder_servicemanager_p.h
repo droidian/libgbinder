@@ -68,6 +68,8 @@ typedef struct gbinder_servicemanager_class {
         const char* name, int* status, const GBinderIpcSyncApi* api);
     int (*add_service)(GBinderServiceManager* self, const char* name,
         GBinderLocalObject* obj, const GBinderIpcSyncApi* api);
+    guint8 (*get_service_transport)(GBinderServiceManager* self,
+        const char* name, int* status, const GBinderIpcSyncApi* api);
 
     /* Checking/normalizing watch names */
     GBINDER_SERVICEMANAGER_NAME_CHECK (*check_name)

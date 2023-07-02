@@ -172,6 +172,12 @@ gbinder_servicemanager_add_service_sync(
     const char* name,
     GBinderLocalObject* obj);
 
+guint8
+gbinder_servicemanager_get_service_transport_sync(
+    GBinderServiceManager* self,
+    const char* name,
+    int* status);
+
 void
 gbinder_servicemanager_cancel(
     GBinderServiceManager* sm,
