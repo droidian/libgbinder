@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2018-2022 Jolla Ltd.
  * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
+ * Copyright (C) 2023 Slava Monich <slava@monich.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -31,6 +32,7 @@
  */
 
 #include "test_common.h"
+#include "test_binder.h"
 
 #include "gbinder_buffer_p.h"
 #include "gbinder_driver.h"
@@ -59,12 +61,9 @@ typedef struct binder_buffer_object_64 {
 } BinderObject64;
 
 #define BINDER_TYPE_(c1,c2,c3) GBINDER_FOURCC(c1,c2,c3,0x85)
-#define BINDER_TYPE_HANDLE BINDER_TYPE_('s','h','*')
-#define BINDER_TYPE_PTR BINDER_TYPE_('p','t','*')
 #define BINDER_TYPE_FD BINDER_TYPE_('f', 'd', '*')
 #define BINDER_BUFFER_FLAG_HAS_PARENT 0x01
 #define BINDER_FLAG_ACCEPTS_FDS 0x100
-#define BUFFER_OBJECT_SIZE_64 (GBINDER_MAX_BUFFER_OBJECT_SIZE)
 G_STATIC_ASSERT(sizeof(BinderObject64) == BUFFER_OBJECT_SIZE_64);
 
 static
@@ -176,7 +175,7 @@ test_byte(
     gbinder_reader_init(&reader, &data, 0, sizeof(in));
     g_assert(gbinder_reader_read_byte(&reader, &out));
     g_assert(gbinder_reader_at_end(&reader));
-    g_assert(in == out);
+    g_assert_cmpuint(in, == ,out);
 
     gbinder_reader_init(&reader, &data, 0, sizeof(in));
     g_assert(gbinder_reader_read_byte(&reader, NULL));
@@ -215,7 +214,7 @@ test_bool(
     gbinder_reader_init(&reader, &data, 0, data.buffer->size);
     g_assert(gbinder_reader_read_bool(&reader, &out));
     g_assert(gbinder_reader_at_end(&reader));
-    g_assert(out == TRUE);
+    g_assert_cmpuint(out, == ,TRUE);
 
     /* false */
     gbinder_buffer_free(data.buffer);
@@ -244,8 +243,8 @@ void
 test_int8(
     void)
 {
-    const guint8 in = 42;
-    const guint8 in4[] = { TEST_INT8_BYTES_4(42) };
+    const guint8 in = 0x2a;
+    const guint8 in4[] = { 0x2a, 0x00, 0x00, 0x00 };
     guint8 out1 = 0;
     gint8 out2 = 0;
     GBinderDriver* driver = gbinder_driver_new(GBINDER_DEFAULT_BINDER, NULL);
@@ -296,7 +295,7 @@ test_int16(
     void)
 {
     const guint16 in = 42;
-    const guint8 in4[] = { TEST_INT16_BYTES_4(42) };
+    const guint8 in4[] = { TEST_INT16_BYTES(42), 0x00, 0x00 };
     guint16 out1 = 0;
     gint16 out2 = 0;
     GBinderDriver* driver = gbinder_driver_new(GBINDER_DEFAULT_BINDER, NULL);
@@ -789,6 +788,7 @@ test_hidl_struct(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1024,6 +1024,7 @@ test_hidl_vec(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1105,6 +1106,7 @@ test_hidl_string_err(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 static
@@ -1139,6 +1141,7 @@ test_hidl_string_err_skip(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1182,6 +1185,7 @@ test_fd_ok(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1213,6 +1217,7 @@ test_fd_shortbuf(
     g_assert(gbinder_reader_read_fd(&reader) < 0);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1256,6 +1261,7 @@ test_fd_badtype(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1303,6 +1309,7 @@ test_dupfd_ok(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1346,6 +1353,7 @@ test_dupfd_badtype(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1389,6 +1397,7 @@ test_dupfd_badfd(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1429,6 +1438,7 @@ test_hidl_string(
     gbinder_remote_object_unref(obj);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 static
@@ -1707,6 +1717,7 @@ test_buffer(
     gbinder_remote_object_unref(obj);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1813,7 +1824,8 @@ test_object(
     /* Using 64-bit I/O */
     static const guint8 input[] = {
         TEST_INT32_BYTES(BINDER_TYPE_HANDLE), TEST_INT32_BYTES(0),
-        TEST_INT64_BYTES(1 /* handle*/), TEST_INT64_BYTES(0)
+        TEST_INT32_BYTES(1 /* handle*/), TEST_INT32_BYTES(0),
+        TEST_INT64_BYTES(0)
     };
     GBinderIpc* ipc = gbinder_ipc_new(GBINDER_DEFAULT_HWBINDER, NULL);
     GBinderBuffer* buf = gbinder_buffer_new(ipc->driver,
@@ -1833,12 +1845,13 @@ test_object(
 
     g_assert(gbinder_reader_read_nullable_object(&reader, &obj));
     g_assert(obj);
-    g_assert(obj->handle == 1);
+    g_assert_cmpuint(obj->handle, == ,1);
 
     g_free(data.objects);
     gbinder_remote_object_unref(obj);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1895,6 +1908,7 @@ test_object_invalid(
     g_free(data.objects);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1947,6 +1961,7 @@ test_vec(
     g_free(data.objects);
     gbinder_buffer_free(data.buffer);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 /*==========================================================================*
@@ -1983,8 +1998,7 @@ test_hidl_string_vec(
     data.objects[i] = NULL;
 
     gbinder_reader_init(&reader, &data, 0, buf->size);
-    out = gbinder_reader_read_hidl_string_vec(&reader)
-;
+    out = gbinder_reader_read_hidl_string_vec(&reader);
     if (out) {
         const guint n = g_strv_length(out);
 
@@ -2002,6 +2016,7 @@ test_hidl_string_vec(
     gbinder_remote_object_unref(obj);
     gbinder_buffer_free(buf);
     gbinder_ipc_unref(ipc);
+    test_binder_exit_wait(&test_opt, NULL);
 }
 
 static

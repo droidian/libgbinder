@@ -1,6 +1,6 @@
 Name: libgbinder
 
-Version: 1.1.26
+Version: 1.1.33
 Release: 0
 Summary: Binder client library
 License: BSD
@@ -45,7 +45,6 @@ make -C test/binder-ping KEEP_SYMBOLS=1 release
 make -C test/binder-call KEEP_SYMBOLS=1 release
 
 %install
-rm -rf %{buildroot}
 make LIBDIR=%{_libdir} DESTDIR=%{buildroot} install-dev
 make -C test/binder-bridge DESTDIR=%{buildroot} install
 make -C test/binder-list DESTDIR=%{buildroot} install
@@ -69,6 +68,7 @@ make -C unit test
 
 %files devel
 %defattr(-,root,root,-)
+%dir %{_includedir}/gbinder
 %{_libdir}/pkgconfig/*.pc
 %{_libdir}/%{name}.so
 %{_includedir}/gbinder/*.h
