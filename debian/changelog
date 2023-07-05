@@ -1,3 +1,47 @@
+libgbinder (1.1.33) unstable; urgency=low
+
+  * Fixed GBinderWriterType for byte and int32
+
+ -- Slava Monich <slava@monich.com>  Sun, 26 Feb 2023 03:13:49 +0200
+
+libgbinder (1.1.32) unstable; urgency=low
+
+  * Improved reliability of unit tests
+
+ -- Slava Monich <slava@monich.com>  Mon, 23 Jan 2023 11:48:00 +0200
+
+libgbinder (1.1.31) unstable; urgency=low
+
+  * Fixed serialization issues on big-endian
+  * Refactored binder simulation for unit tests
+
+ -- Slava Monich <slava@monich.com>  Wed, 04 Jan 2023 19:10:37 +0200
+
+libgbinder (1.1.30) unstable; urgency=low
+
+  * Fixed BC_ACQUIRE_DONE encoding
+
+ -- Slava Monich <slava.monich@jolla.com>  Sun, 04 Dec 2022 19:50:10 +0200
+
+libgbinder (1.1.29) unstable; urgency=low
+
+  * Added gbinder_writer_append_struct_vec
+
+ -- Slava Monich <slava.monich@jolla.com>  Fri, 25 Nov 2022 00:01:41 +0200
+
+libgbinder (1.1.28) unstable; urgency=low
+
+  * Allow to pass negative number as a parameter to binder-call
+  * Compile tools as PIE
+
+ -- Slava Monich <slava.monich@jolla.com>  Tue, 22 Nov 2022 18:21:29 +0200
+
+libgbinder (1.1.27) unstable; urgency=low
+
+  * Added gbinder_writer_append_struct()
+
+ -- Slava Monich <slava.monich@jolla.com>  Thu, 17 Nov 2022 03:25:37 +0200
+
 libgbinder (1.1.26) unstable; urgency=low
 
   * Use BINDER_TYPE_HANDLE for NULL binders
