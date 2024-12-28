@@ -1,8 +1,8 @@
 /*
- * Copyright (C) 2018-2022 Jolla Ltd.
- * Copyright (C) 2018-2023 Slava Monich <slava@monich.com>
+ * Copyright (C) 2018-2024 Jolla Ltd.
+ * Copyright (C) 2018-2024 Slava Monich <slava@monich.com>
  *
- * You may use this file under the terms of BSD license as follows:
+ * You may use this file under the terms of the BSD license as follows:
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -523,37 +523,37 @@ gbinder_writer_data_append_string16_len(
         gsize padded_len = G_ALIGN4((len+1)*2);
         guint32* len_ptr;
         gunichar2* utf16_ptr;
+        gunichar2* utf16 = NULL;
+
+        /* Create utf-16 string to make sure of its size */
+        if (len > 0) {
+            glong utf16_len = 0;
+
+            utf16 = g_utf8_to_utf16(utf8, num_bytes, NULL, &utf16_len, NULL);
+            if (utf16) {
+                len = utf16_len;
+                padded_len = G_ALIGN4((len+1)*2);
+            }
+        }
 
         /* Preallocate space */
         g_byte_array_set_size(buf, old_size + padded_len + 4);
         len_ptr = (guint32*)(buf->data + old_size);
         utf16_ptr = (gunichar2*)(len_ptr + 1);
 
-        /* TODO: this could be optimized for ASCII strings, i.e. if
-         * len equals num_bytes */
-        if (len > 0) {
-            glong utf16_len = 0;
-            gunichar2* utf16 = g_utf8_to_utf16(utf8, num_bytes, NULL,
-                &utf16_len, NULL);
-
-            if (utf16) {
-                len = utf16_len;
-                padded_len = G_ALIGN4((len+1)*2);
-                memcpy(utf16_ptr, utf16, (len+1)*2);
-                g_free(utf16);
-            }
+        /* Copy string */
+        if (utf16) {
+            memcpy(utf16_ptr, utf16, len*2);
+            g_free(utf16);
         }
 
         /* Actual length */
         *len_ptr = len;
 
         /* Zero padding */
-        if (padded_len - (len + 1)*2) {
-            memset(utf16_ptr + (len + 1), 0, padded_len - (len + 1)*2);
+        if (padded_len > len*2) {
+            memset(utf16_ptr + len, 0, padded_len - len*2);
         }
-
-        /* Correct the packet size if necessaary */
-        g_byte_array_set_size(buf, old_size + padded_len + 4);
     } else if (utf8) {
         /* Empty string */
         gbinder_writer_data_append_string16_empty(data);
@@ -1176,8 +1176,11 @@ gbinder_writer_data_append_local_object(
     n = data->io->encode_local_object(buf->data + offset, obj, data->protocol);
     /* Fix the data size */
     g_byte_array_set_size(buf, offset + n);
-    /* Record the offset */
-    gbinder_writer_data_record_offset(data, offset);
+
+    if (obj) {
+        /* Record the offset */
+        gbinder_writer_data_record_offset(data, offset);
+    }
 }
 
 void
@@ -1203,19 +1206,29 @@ gbinder_writer_append_byte_array(
     GASSERT(len >= 0);
     if (G_LIKELY(data)) {
         GByteArray* buf = data->bytes;
-        void* ptr;
+        gsize padded_len;
+        guint8* ptr;
 
         if (!byte_array) {
             len = 0;
         }
 
-        g_byte_array_set_size(buf, buf->len + sizeof(len) + len);
-        ptr = buf->data + (buf->len - sizeof(len) - len);
+        /*
+         * Android aligns byte array reads and writes to 4 bytes and
+         * pads with 0xFF.
+         */
+        padded_len = G_ALIGN4(len);
+        g_byte_array_set_size(buf, buf->len + sizeof(len) + padded_len);
+        ptr = buf->data + (buf->len - sizeof(len) - padded_len);
 
         if (len > 0) {
             *((gint32*)ptr) = len;
             ptr += sizeof(len);
             memcpy(ptr, byte_array, len);
+            /* FF padding */
+            if (padded_len > len) {
+                memset(ptr + len, 0xff, padded_len - len);
+            }
         } else {
             *((gint32*)ptr) = -1;
         }
@@ -1298,8 +1311,11 @@ gbinder_writer_data_append_remote_object(
     n = data->io->encode_remote_object(buf->data + offset, obj);
     /* Fix the data size */
     g_byte_array_set_size(buf, offset + n);
-    /* Record the offset */
-    gbinder_writer_data_record_offset(data, offset);
+
+    if (obj) {
+        /* Record the offset */
+        gbinder_writer_data_record_offset(data, offset);
+    }
 }
 
 static

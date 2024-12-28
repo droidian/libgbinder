@@ -1,9 +1,8 @@
 /*
+ * Copyright (C) 2018-2024 Slava Monich <slava@monich.com>
  * Copyright (C) 2018-2022 Jolla Ltd.
- * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
- * Copyright (C) 2023 Slava Monich <slava@monich.com>
  *
- * You may use this file under the terms of BSD license as follows:
+ * You may use this file under the terms of the BSD license as follows:
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,6 +45,7 @@
 #include "gbinder_io.h"
 
 #include <gutil_intarray.h>
+#include <gutil_macros.h>
 #include <gutil_misc.h>
 #include <gutil_log.h>
 
@@ -83,10 +83,7 @@ test_local_request_new_64()
  *==========================================================================*/
 
 typedef struct test_context {
-    const char* default_config_dir;
-    const char* default_config_file;
-    char* config_dir;
-    char* config_subdir;
+    TestConfig config;
     char* config_file;
 } TestContext;
 
@@ -97,20 +94,17 @@ test_context_init(
     const char* prot)
 {
     memset(test, 0, sizeof(*test));
-    test->default_config_dir = gbinder_config_dir;
-    test->default_config_file = gbinder_config_file;
-    test->config_dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
-    test->config_subdir = g_build_filename(test->config_dir, "d", NULL);
-    test->config_file = g_build_filename(test->config_dir, "test.conf", NULL);
-    gbinder_config_dir = test->config_subdir; /* Doesn't exist */
-    gbinder_config_file = test->config_file;
+    test_config_init(&test->config, TMP_DIR_TEMPLATE);
     if (prot) {
         char* config = g_strdup_printf("[Protocol]\n"
             GBINDER_DEFAULT_BINDER " = %s", prot);
 
+        test->config_file = g_build_filename(test->config.config_dir,
+            "test.conf", NULL);
         GDEBUG("Config file %s", test->config_file);
         g_assert(g_file_set_contents(test->config_file, config, -1, NULL));
         g_free(config);
+        gbinder_config_file = test->config_file;
     }
 }
 
@@ -119,15 +113,11 @@ void
 test_context_deinit(
     TestContext* test)
 {
-    remove(test->config_file);
-    remove(test->config_dir);
-    g_free(test->config_file);
-    g_free(test->config_subdir);
-    g_free(test->config_dir);
-    gbinder_config_dir = test->default_config_dir;
-    gbinder_config_file = test->default_config_file;
-    gbinder_config_exit();
-    gbinder_rpc_protocol_exit();
+    if (test->config_file) {
+        remove(test->config_file);
+        g_free(test->config_file);
+    }
+    test_config_cleanup(&test->config);
 }
 
 /*==========================================================================*
@@ -528,11 +518,23 @@ static const guint8 string16_tests_data_xy[] = {
     0x00, 0x00, 0x00, 0x00
 };
 
+static const guint8 string16_tests_data_surrogates[] = {
+    TEST_INT32_BYTES(8),
+    TEST_INT16_BYTES(0xd83d), TEST_INT16_BYTES(0xde00),
+    TEST_INT16_BYTES(0xd83d), TEST_INT16_BYTES(0xde01),
+    TEST_INT16_BYTES(0xd83d), TEST_INT16_BYTES(0xde02),
+    TEST_INT16_BYTES(0xd83d), TEST_INT16_BYTES(0xde03),
+    0x00, 0x00, 0x00, 0x00
+};
+
 static const TestString16Data test_string16_tests[] = {
     { "null", NULL, TEST_ARRAY_AND_SIZE(string16_tests_data_null) },
     { "empty", "", TEST_ARRAY_AND_SIZE(string16_tests_data_empty) },
     { "1", "x", TEST_ARRAY_AND_SIZE(string16_tests_data_x) },
-    { "2", "xy", TEST_ARRAY_AND_SIZE(string16_tests_data_xy) }
+    { "2", "xy", TEST_ARRAY_AND_SIZE(string16_tests_data_xy) },
+    { "surrogates", "\xF0\x9F\x98\x80" "\xF0\x9F\x98\x81"
+      "\xF0\x9F\x98\x82" "\xF0\x9F\x98\x83",
+      TEST_ARRAY_AND_SIZE(string16_tests_data_surrogates) }
 };
 
 static
@@ -550,7 +552,7 @@ test_string16(
     data = gbinder_local_request_data(req);
     g_assert(!gbinder_output_data_offsets(data));
     g_assert(!gbinder_output_data_buffers_size(data));
-    g_assert(data->bytes->len == test->output_len);
+    g_assert_cmpuint(data->bytes->len, == ,test->output_len);
     g_assert(!memcmp(data->bytes->data, test->output, test->output_len));
     gbinder_local_request_unref(req);
 }
@@ -1348,7 +1350,6 @@ test_local_object(
     const TestLocalObjectData* test = test_data;
     GBinderLocalRequest* req;
     GBinderOutputData* data;
-    GUtilIntArray* offsets;
     GBinderWriter writer;
     TestContext context;
 
@@ -1357,10 +1358,7 @@ test_local_object(
     gbinder_local_request_init_writer(req, &writer);
     gbinder_writer_append_local_object(&writer, NULL);
     data = gbinder_local_request_data(req);
-    offsets = gbinder_output_data_offsets(data);
-    g_assert(offsets);
-    g_assert_cmpuint(offsets->count, == ,1);
-    g_assert_cmpuint(offsets->data[0], == ,0);
+    g_assert(!gbinder_output_data_offsets(data));
     g_assert_cmpuint(gbinder_output_data_buffers_size(data), == ,0);
     g_assert_cmpuint(data->bytes->len, == ,test->objsize);
     gbinder_local_request_unref(req);
@@ -1378,7 +1376,6 @@ test_remote_object(
 {
     GBinderLocalRequest* req = test_local_request_new_64();
     GBinderOutputData* data;
-    GUtilIntArray* offsets;
     GBinderWriter writer;
     TestContext test;
 
@@ -1386,10 +1383,7 @@ test_remote_object(
     gbinder_local_request_init_writer(req, &writer);
     gbinder_writer_append_remote_object(&writer, NULL);
     data = gbinder_local_request_data(req);
-    offsets = gbinder_output_data_offsets(data);
-    g_assert(offsets);
-    g_assert(offsets->count == 1);
-    g_assert(offsets->data[0] == 0);
+    g_assert(!gbinder_output_data_offsets(data));
     g_assert(!gbinder_output_data_buffers_size(data));
     g_assert(data->bytes->len == BINDER_OBJECT_SIZE_64);
     gbinder_local_request_unref(req);
@@ -1409,7 +1403,7 @@ test_byte_array(
     GBinderOutputData* data;
     GBinderWriter writer;
 
-    const char in_data[] = "abcd1234";
+    const char in_data[] = "abcd12";
     gint32 in_len = sizeof(in_data) - 1;
     gint32 null_len = -1;
 
@@ -1442,7 +1436,7 @@ test_byte_array(
     data = gbinder_local_request_data(req);
     g_assert(!gbinder_output_data_offsets(data));
     g_assert(!gbinder_output_data_buffers_size(data));
-    g_assert(data->bytes->len == sizeof(in_len) + in_len);
+    g_assert(data->bytes->len == sizeof(in_len) + G_ALIGN4(in_len));
     g_assert(!memcmp(data->bytes->data, &in_len, sizeof(in_len)));
     g_assert(!memcmp(data->bytes->data + sizeof(in_len), in_data, in_len));
     gbinder_local_request_unref(req);

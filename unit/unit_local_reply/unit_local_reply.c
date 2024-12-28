@@ -1,6 +1,6 @@
 /*
+ * Copyright (C) 2018-2024 Slava Monich <slava@monich.com>
  * Copyright (C) 2018-2022 Jolla Ltd.
- * Copyright (C) 2018-2022 Slava Monich <slava.monich@jolla.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -46,6 +46,7 @@
 #include <gutil_intarray.h>
 
 static TestOpt test_opt;
+static const char TMP_DIR_TEMPLATE[] = "gbinder-test-local-reply-XXXXXX";
 
 static
 void
@@ -453,10 +454,7 @@ test_local_object(
     reply = test_local_reply_new();
     gbinder_local_reply_append_local_object(reply, NULL);
     data = gbinder_local_reply_data(reply);
-    offsets = gbinder_output_data_offsets(data);
-    g_assert(offsets);
-    g_assert_cmpuint(offsets->count, == ,1);
-    g_assert_cmpuint(offsets->data[0], == ,0);
+    g_assert(!gbinder_output_data_offsets(data));
     g_assert_cmpuint(gbinder_output_data_buffers_size(data), == ,0);
     g_assert_cmpuint(data->bytes->len, == ,BINDER_OBJECT_SIZE_32);
     gbinder_local_reply_unref(reply);
@@ -474,14 +472,10 @@ test_remote_object(
 {
     GBinderLocalReply* reply = test_local_reply_new();
     GBinderOutputData* data;
-    GUtilIntArray* offsets;
 
     gbinder_local_reply_append_remote_object(reply, NULL);
     data = gbinder_local_reply_data(reply);
-    offsets = gbinder_output_data_offsets(data);
-    g_assert(offsets);
-    g_assert(offsets->count == 1);
-    g_assert(offsets->data[0] == 0);
+    g_assert(!gbinder_output_data_offsets(data));
     g_assert(!gbinder_output_data_buffers_size(data));
     g_assert(data->bytes->len == BINDER_OBJECT_SIZE_32);
     gbinder_local_reply_unref(reply);
@@ -538,6 +532,9 @@ test_remote_reply(
 
 int main(int argc, char* argv[])
 {
+    TestConfig test_config;
+    int result;
+
     G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
     g_type_init();
     G_GNUC_END_IGNORE_DEPRECATIONS;
@@ -558,7 +555,10 @@ int main(int argc, char* argv[])
     g_test_add_func(TEST_PREFIX "remote_object", test_remote_object);
     g_test_add_func(TEST_PREFIX "remote_reply", test_remote_reply);
     test_init(&test_opt, argc, argv);
-    return g_test_run();
+    test_config_init(&test_config, TMP_DIR_TEMPLATE);
+    result = g_test_run();
+    test_config_cleanup(&test_config);
+    return result;
 }
 
 /*

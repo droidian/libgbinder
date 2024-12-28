@@ -35,6 +35,9 @@
 #include "gbinder_writer.h"
 #include "gbinder_config.h"
 #include "gbinder_log.h"
+#include "gbinder_local_object_p.h"
+
+#include <string.h>
 
 #define STRICT_MODE_PENALTY_GATHER (0x40 << 16)
 #define BINDER_RPC_FLAGS (STRICT_MODE_PENALTY_GATHER)
@@ -218,7 +221,11 @@ gbinder_rpc_protocol_aidl3_finish_flatten_binder(
     void* out,
     GBinderLocalObject* obj)
 {
-    *(guint32*)out = GBINDER_STABILITY_SYSTEM;
+    if (G_LIKELY(obj)) {
+        *(guint32*)out = obj->stability;
+    } else {
+        *(guint32*)out = GBINDER_STABILITY_UNDECLARED;
+    }
 }
 
 static const GBinderRpcProtocol gbinder_rpc_protocol_aidl3 = {
@@ -229,6 +236,44 @@ static const GBinderRpcProtocol gbinder_rpc_protocol_aidl3 = {
     .read_rpc_header = gbinder_rpc_protocol_aidl3_read_rpc_header,
     .flat_binder_object_extra = 4,
     .finish_flatten_binder = gbinder_rpc_protocol_aidl3_finish_flatten_binder
+};
+
+/*==========================================================================*
+ * AIDL protocol appeared in Android 12 (API level 31), but reverted in
+ * Android 13 (API level 33).
+ *==========================================================================*/
+
+#define BINDER_WIRE_FORMAT_VERSION_AIDL4 1
+struct stability_category {
+    guint8 binder_wire_format_version;
+    guint8 reserved[2];
+    guint8 stability_level;
+};
+G_STATIC_ASSERT(sizeof(struct stability_category) == sizeof(guint32));
+
+static
+void
+gbinder_rpc_protocol_aidl4_finish_flatten_binder(
+    void* out,
+    GBinderLocalObject* obj)
+{
+    struct stability_category cat = {
+        .binder_wire_format_version = BINDER_WIRE_FORMAT_VERSION_AIDL4,
+        .reserved = { 0, 0, },
+        .stability_level = obj ? obj->stability : GBINDER_STABILITY_UNDECLARED,
+    };
+
+    memcpy(out, &cat, sizeof(cat));
+}
+
+static const GBinderRpcProtocol gbinder_rpc_protocol_aidl4 = {
+    .name = "aidl4",
+    .ping_tx = GBINDER_PING_TRANSACTION,
+    .write_ping = gbinder_rpc_protocol_aidl_write_ping, /* no payload */
+    .write_rpc_header = gbinder_rpc_protocol_aidl3_write_rpc_header,
+    .read_rpc_header = gbinder_rpc_protocol_aidl3_read_rpc_header,
+    .flat_binder_object_extra = 4,
+    .finish_flatten_binder = gbinder_rpc_protocol_aidl4_finish_flatten_binder
 };
 
 /*==========================================================================*
@@ -284,6 +329,7 @@ static const GBinderRpcProtocol* gbinder_rpc_protocol_list[] = {
     &gbinder_rpc_protocol_aidl,
     &gbinder_rpc_protocol_aidl2,
     &gbinder_rpc_protocol_aidl3,
+    &gbinder_rpc_protocol_aidl4,
     &gbinder_rpc_protocol_hidl
 };
 

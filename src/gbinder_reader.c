@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2018-2022 Jolla Ltd.
- * Copyright (C) 2018-2023 Slava Monich <slava@monich.com>
+ * Copyright (C) 2018-2024 Jolla Ltd.
+ * Copyright (C) 2018-2024 Slava Monich <slava@monich.com>
  *
  * You may use this file under the terms of BSD license as follows:
  *
@@ -617,6 +617,7 @@ gbinder_reader_read_hidl_string_vec(
     return NULL;
 }
 
+/* The equivalent of Android's Parcel::readCString */
 const char*
 gbinder_reader_read_string8(
     GBinderReader* reader)
@@ -641,6 +642,49 @@ gbinder_reader_read_string8(
     return NULL;
 }
 
+/* The equivalent of Android's Parcel::readString8 */
+gboolean
+gbinder_reader_read_nullable_string8(
+    GBinderReader* reader,
+    const char** out,
+    gsize* out_len) /* Since 1.1.41 */
+{
+    GBinderReaderPriv* p = gbinder_reader_cast(reader);
+
+    if ((p->ptr + 4) <= p->end) {
+        const gint32* len_ptr = (gint32*)p->ptr;
+        const gint32 len = *len_ptr;
+
+        if (len == -1) {
+            /* NULL string */
+            p->ptr += 4;
+            if (out) {
+                *out = NULL;
+            }
+            if (out_len) {
+                *out_len = 0;
+            }
+            return TRUE;
+        } else if (len >= 0) {
+            const guint32 padded_len = G_ALIGN4(len + 1);
+            const char* str = (char*)(p->ptr + 4);
+
+            if ((p->ptr + padded_len + 4) <= p->end && !str[len]) {
+                p->ptr += padded_len + 4;
+                if (out) {
+                    *out = str;
+                }
+                if (out_len) {
+                    *out_len = len;
+                }
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+/* The equivalent of Android's Parcel::readString16 */
 gboolean
 gbinder_reader_read_nullable_string16(
     GBinderReader* reader,
@@ -682,17 +726,20 @@ gbinder_reader_read_nullable_string16_utf16(
             return TRUE;
         } else if (len >= 0) {
             const guint32 padded_len = G_ALIGN4((len + 1)*2);
-            const gunichar2* utf16 = (gunichar2*)(p->ptr + 4);
 
             if ((p->ptr + padded_len + 4) <= p->end) {
-                p->ptr += padded_len + 4;
-                if (out) {
-                    *out = utf16;
+                const gunichar2* utf16 = (gunichar2*)(p->ptr + 4);
+
+                if (!utf16[len]) {
+                    p->ptr += padded_len + 4;
+                    if (out) {
+                        *out = utf16;
+                    }
+                    if (out_len) {
+                        *out_len = len;
+                    }
+                    return TRUE;
                 }
-                if (out_len) {
-                    *out_len = len;
-                }
-                return TRUE;
             }
         }
     }
@@ -728,26 +775,7 @@ gboolean
 gbinder_reader_skip_string16(
     GBinderReader* reader)
 {
-    GBinderReaderPriv* p = gbinder_reader_cast(reader);
-
-    if ((p->ptr + 4) <= p->end) {
-        const gint32* len_ptr = (gint32*)p->ptr;
-        const gint32 len = *len_ptr;
-
-        if (len == -1) {
-            /* NULL string */
-            p->ptr += 4;
-            return TRUE;
-        } else if (len >= 0) {
-            const guint32 padded_len = G_ALIGN4((len+1)*2);
-
-            if ((p->ptr + padded_len + 4) <= p->end) {
-                p->ptr += padded_len + 4;
-                return TRUE;
-            }
-        }
-    }
-    return FALSE;
+    return gbinder_reader_read_nullable_string16_utf16(reader, NULL, NULL);
 }
 
 const void*
@@ -770,7 +798,8 @@ gbinder_reader_read_byte_array(
             *len = (gsize)*ptr;
             p->ptr += sizeof(*ptr);
             data = p->ptr;
-            p->ptr += *len;
+            /* Android aligns byte array reads and writes to 4 bytes */
+            p->ptr += G_ALIGN4(*len);
         }
     }
     return data;

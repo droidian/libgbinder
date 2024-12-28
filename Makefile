@@ -16,7 +16,7 @@
 
 VERSION_MAJOR = 1
 VERSION_MINOR = 1
-VERSION_RELEASE = 33
+VERSION_RELEASE = 42
 
 # Version for pkg-config
 PCVERSION = $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_RELEASE)
@@ -50,10 +50,10 @@ RELEASE_DEPS = libglibutil_release
 .PHONY: libglibutil_debug libglibutil_release
 
 libglibutil_debug:
-	make -C $(LIBGLIBUTIL_PATH) debug
+	$(MAKE) -C $(LIBGLIBUTIL_PATH) debug
 
 libglibutil_release:
-	make -C $(LIBGLIBUTIL_PATH) release
+	$(MAKE) -C $(LIBGLIBUTIL_PATH) release
 
 endif
 
@@ -126,16 +126,19 @@ COVERAGE_BUILD_DIR = $(BUILD_DIR)/coverage
 # Tools and flags
 #
 
+PKG_CONFIG ?= pkg-config
 CC ?= $(CROSS_COMPILE)gcc
 STRIP ?= strip
 LD = $(CC)
 WARNINGS = -Wall -Wstrict-aliasing -Wunused-result
+DEFINES += -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_32 \
+  -DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_MAX_ALLOWED
 INCLUDES += -I$(INCLUDE_DIR)
 BASE_FLAGS = -fPIC
 FULL_CFLAGS = $(BASE_FLAGS) $(CFLAGS) $(DEFINES) $(WARNINGS) $(INCLUDES) \
-  -MMD -MP $(shell pkg-config --cflags $(PKGS))
+  -MMD -MP $(shell $(PKG_CONFIG) --cflags $(PKGS))
 FULL_LDFLAGS = $(BASE_FLAGS) $(LDFLAGS) -shared -Wl,-soname,$(LIB_SONAME) \
-  $(shell pkg-config --libs $(PKGS)) -lpthread
+  $(shell $(PKG_CONFIG) --libs $(PKGS)) -lpthread
 DEBUG_FLAGS = -g
 RELEASE_FLAGS =
 COVERAGE_FLAGS = -g
@@ -235,8 +238,8 @@ print_release_path:
 	@echo $(RELEASE_BUILD_DIR)
 
 clean:
-	make -C test clean
-	make -C unit clean
+	$(MAKE) -C test clean
+	$(MAKE) -C unit clean
 	rm -fr test/coverage/results test/coverage/*.gcov
 	rm -f *~ $(SRC_DIR)/*~ $(INCLUDE_DIR)/*~
 	rm -fr $(BUILD_DIR) RPMS installroot
@@ -246,7 +249,7 @@ clean:
 	rm -f debian/libgbinder.install debian/libgbinder-dev.install
 
 test:
-	make -C unit test
+	$(MAKE) -C unit test
 
 $(BUILD_DIR):
 	mkdir -p $@
