@@ -263,7 +263,7 @@ gbinder_servicemanager_hidl_get_service_transport(
 {
     /* e.g. "android.hardware.radio@1.1::IRadio/slot1" */
     const char* sep = strchr(fqinstance, '/');
-    guint8 transport = NULL;
+    guint8 transport;
 
     if (sep) {
         GBinderRemoteReply* reply;
